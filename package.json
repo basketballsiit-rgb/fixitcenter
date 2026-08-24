@@ -14,7 +14,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio",
-    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "sync": "powershell ./sync-git.ps1"
   },
   "devDependencies": {
     "@prisma/client": "^5.8.1",
