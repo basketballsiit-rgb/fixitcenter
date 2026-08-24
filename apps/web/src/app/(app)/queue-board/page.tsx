@@ -25,6 +25,7 @@ import { getSocket, joinRoom } from '@/lib/socket';
 import { useQueueStore, type QueueTicket } from '@/store/queue.store';
 import { useAuthStore } from '@/store/auth.store';
 import { Badge } from '@/components/ui/badge';
+import { assetUrl } from '@/lib/utils';
 
 const TRADE_CONFIG = [
   {
@@ -290,7 +291,7 @@ export default function QueueBoardPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <img
-              src="/logo.png"
+              src={assetUrl('/logo.png')}
               alt="FixIt Center"
               className="h-12 w-auto object-contain bg-white/95 p-1 rounded-xl shadow-md"
             />

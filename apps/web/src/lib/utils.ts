@@ -55,3 +55,15 @@ export function timeAgo(date: string | Date): string {
   const days = Math.floor(hours / 24);
   return `${days} วันที่แล้ว`;
 }
+
+export function assetUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const base = process.env.NEXT_PUBLIC_BASE_PATH || '/fixitcenter';
+  if (cleanPath.startsWith(base)) return cleanPath;
+  return `${base}${cleanPath}`;
+}
+

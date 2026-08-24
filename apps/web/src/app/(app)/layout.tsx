@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, assetUrl } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 import { Toaster } from '@/components/ui/toaster';
 import {
@@ -55,7 +55,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b bg-slate-50/50">
         <img
-          src="/logo.png"
+          src={assetUrl('/logo.png')}
           alt="FixIt Center"
           width={44}
           height={44}

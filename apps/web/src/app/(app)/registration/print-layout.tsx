@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { formatNationalId, formatPhone } from '@/lib/utils';
+import { formatNationalId, formatPhone, assetUrl } from '@/lib/utils';
 
 export interface PrintLayoutProps {
   queueNumber: string;
@@ -101,7 +101,7 @@ export function PrintLayout({
         <div className="text-center mb-2">
           <div className="flex justify-center mb-1">
             <img
-              src="/logo.png"
+              src={assetUrl('/logo.png')}
               alt="FixIt Logo"
               className="h-16 w-auto object-contain"
             />

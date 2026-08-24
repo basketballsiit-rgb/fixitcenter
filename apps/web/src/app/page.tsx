@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { dashboardApi, kitchenApi, type DashboardStats, type CenterWithStats, type KitchenSummary } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, assetUrl } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
 export default function LandingPortalPage() {
@@ -103,7 +103,7 @@ export default function LandingPortalPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-2 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img
-              src="/logo.png"
+              src={assetUrl('/logo.png')}
               alt="FixIt Center Logo"
               width={50}
               height={50}
@@ -215,7 +215,7 @@ export default function LandingPortalPage() {
             <div className="lg:col-span-5 flex flex-col gap-4">
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15 flex items-center gap-4">
                 <img
-                  src="/logo.png"
+                  src={assetUrl('/logo.png')}
                   alt="FixIt Center"
                   width={80}
                   height={80}
@@ -550,7 +550,7 @@ export default function LandingPortalPage() {
         <div className="max-w-7xl mx-auto px-4 space-y-1">
           <div className="flex items-center justify-center gap-2 mb-2">
             <img
-              src="/logo.png"
+              src={assetUrl('/logo.png')}
               alt="Logo"
               width={32}
               height={32}

@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { centerApi, dashboardApi, repairOrderApi, type Center, type DashboardStats, type RepairOrder } from '@/lib/api';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime, assetUrl } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -88,7 +88,7 @@ export default function CenterDedicatedPage({ params }: { params: { id: string }
             </Link>
             <div className="h-6 w-px bg-slate-200" />
             <img
-              src="/logo.png"
+              src={assetUrl('/logo.png')}
               alt="Logo"
               width={40}
               height={40}

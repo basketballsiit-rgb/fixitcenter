@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/store/auth.store';
+import { assetUrl } from '@/lib/utils';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'กรุณากรอกชื่อผู้ใช้'),
@@ -63,7 +64,7 @@ export default function LoginPage() {
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white/95 shadow-xl mb-3">
             <img
-              src="/logo.png"
+              src={assetUrl('/logo.png')}
               alt="FixIt Center Logo"
               width={80}
               height={80}
