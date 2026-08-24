@@ -1,31 +1,31 @@
 FROM node:20-alpine AS base
 RUN npm install -g pnpm
 
+# 1. Install dependencies based on lockfile
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
+COPY packages/shared ./packages/shared
+COPY apps/web/package.json ./apps/web/package.json
+RUN pnpm install
 
+# 2. Build application
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app ./
 COPY . .
-RUN pnpm run build
+ENV NEXT_TELEMETRY_DISABLED 1
+RUN pnpm --filter @npc/web build
 
+# 3. Production runner
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+COPY --from=builder /app ./
 
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
+WORKDIR /app/apps/web
 EXPOSE 3000
 ENV PORT 3000
-
-CMD ["node", "server.js"]
+CMD ["pnpm", "start"]

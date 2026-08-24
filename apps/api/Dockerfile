@@ -1,31 +1,29 @@
 FROM node:20-alpine AS base
 RUN npm install -g pnpm
 
-# Dependencies
+# 1. Install dependencies based on lockfile
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
+COPY packages/shared ./packages/shared
+COPY apps/api/package.json ./apps/api/package.json
+COPY prisma ./prisma
+RUN pnpm install
 
-# Build
+# 2. Build application
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app ./
 COPY . .
-RUN pnpm run build
+RUN pnpm --filter @npc/api build
 
-# Production
+# 3. Production runner
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV production
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app ./
 
-# Generate Prisma client
-COPY prisma ./prisma
-RUN pnpm dlx prisma generate
-
+WORKDIR /app/apps/api
 EXPOSE 3001
 CMD ["node", "dist/main"]
