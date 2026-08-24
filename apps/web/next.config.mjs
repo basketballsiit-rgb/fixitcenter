@@ -3,6 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   basePath: '/fixitcenter',
   assetPrefix: '/fixitcenter',
+  trailingSlash: false,
+  skipTrailingSlashRedirect: true,
   images: {
     unoptimized: true,
     remotePatterns: [
