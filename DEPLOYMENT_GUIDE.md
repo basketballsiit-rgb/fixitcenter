@@ -37,6 +37,29 @@ ssh username@ip-server-วิทยาลัย
 ```
 
 ### ขั้นตอนที่ 1.2: ติดตั้ง Git และ Docker (หากเครื่องยังไม่มี)
+
+* **สำหรับ CentOS 9 Stream / RHEL 9**:
+```bash
+# 1. ติดตั้ง Git และเครื่องมือพื้นฐาน
+sudo dnf install -y git curl dnf-plugins-core
+
+# 2. เพิ่ม Docker Repository สำหรับ CentOS
+sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+# 3. ติดตั้ง Docker Engine และ Docker Compose Plugin
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# 4. เปิดใช้งานและสั่งให้ Docker เริ่มทำงานอัตโนมัติ
+sudo systemctl enable --now docker
+
+# 5. เปิด Port ใน Firewall ของ CentOS 9 (firewalld)
+sudo firewall-cmd --permanent --add-port=3000/tcp
+sudo firewall-cmd --permanent --add-port=3001/tcp
+sudo firewall-cmd --permanent --add-port=80/tcp
+sudo firewall-cmd --permanent --add-port=443/tcp
+sudo firewall-cmd --reload
+```
+
 * **สำหรับ Ubuntu / Debian**:
 ```bash
 sudo apt update && sudo apt upgrade -y
