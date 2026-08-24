@@ -1,0 +1,38 @@
+{
+  "name": "npc-fixitcenter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NPC FixIt Center — Field Service Management System",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "start": "turbo run start --parallel",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "test": "turbo run test",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.8.1",
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20.11.5",
+    "bcrypt": "^5.1.1",
+    "prettier": "^3.2.4",
+    "prisma": "^5.8.1",
+    "ts-node": "^10.9.2",
+    "turbo": "^1.12.4",
+    "typescript": "^5.3.3"
+  },
+  "prisma": {
+    "seed": "ts-node --project tsconfig.json -e esm prisma/seed.ts"
+  },
+  "packageManager": "pnpm@8.15.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

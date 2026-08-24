@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    
+    /* Primary: FixIt Orange */
+    --primary: 24 95% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary: Deep Navy Blue */
+    --secondary: 217 76% 22%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --muted: 215 25% 95%;
+    --muted-foreground: 215 16% 47%;
+    
+    /* Accent: Soft Orange / Blue */
+    --accent: 28 100% 96%;
+    --accent-foreground: 24 95% 45%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 24 95% 50%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 76% 35%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 24 95% 53%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; font-family: 'Sarabun', sans-serif; }
+}
+
+@media print {
+  /* Hide all regular UI, navigation, sidebars, headers, dialogs, and overlays */
+  nav, aside, header, footer, button, .no-print, [role="dialog"], [data-radix-portal], [data-radix-dialog-overlay] {
+    display: none !important;
+  }
+
+  /* Reset body and document flow for printing */
+  html, body {
+    width: 210mm !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Sarabun', sans-serif !important;
+    font-size: 12pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide everything inside main wrapper except .print-only and .print-tag-only */
+  body > * {
+    visibility: hidden;
+  }
+
+  .print-only,
+  .print-only *,
+  .print-tag-only,
+  .print-tag-only * {
+    visibility: visible !important;
+  }
+
+  .print-only {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    padding: 8mm 12mm !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    z-index: 9999999 !important;
+    box-sizing: border-box !important;
+  }
+
+  .print-tag-only {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    padding: 6mm 10mm !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    z-index: 9999999 !important;
+    box-sizing: border-box !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}

@@ -1,0 +1,444 @@
+// ============================================================
+// NPC FixIt Center — Prisma Schema
+// PostgreSQL primary DB | Multi-tenant + Mission-centric
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// RBAC — Users, Roles, Permissions
+// ─────────────────────────────────────────
+
+model Permission {
+  id          String   @id @default(cuid())
+  action      String   // e.g. "repair_orders:create"
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  roles RolePermission[]
+
+  @@unique([action])
+  @@map("permissions")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // ADMIN | SUPERVISOR | TECHNICIAN | REGISTRAR | VIEWER
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  permissions RolePermission[]
+  users       User[]
+
+  @@map("roles")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  email        String?   @unique
+  phone        String?
+  roleId       String    @map("role_id")
+  centerId     String?   @map("center_id") // null = global admin
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  role         Role          @relation(fields: [roleId], references: [id])
+  center       ServiceCenter? @relation(fields: [centerId], references: [id])
+  repairOrders RepairOrder[] @relation("AssignedTechnician")
+  auditLogs    AuditLog[]
+
+  @@index([centerId])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────
+// Missions (Fiscal Year scoping)
+// ─────────────────────────────────────────
+
+model Mission {
+  id          String    @id @default(cuid())
+  name        String    // e.g. "ปฏิบัติการซ่อม 2567"
+  fiscalYear  Int       @map("fiscal_year") // Buddhist year e.g. 2567
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  isActive    Boolean   @default(false) @map("is_active")
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  centers      ServiceCenter[]
+  repairOrders RepairOrder[]
+  queueCounters TradeQueueCounter[]
+  kitchenLogs  KitchenLog[]
+
+  @@index([fiscalYear])
+  @@index([isActive])
+  @@map("missions")
+}
+
+// ─────────────────────────────────────────
+// Service Centers (Multi-tenant root)
+// ─────────────────────────────────────────
+
+model ServiceCenter {
+  id          String   @id @default(cuid())
+  name        String   // e.g. "ศูนย์บริการ NPC ขอนแก่น"
+  code        String   @unique // e.g. "NPC-KKN"
+  region      String?  // e.g. "ภาคตะวันออกเฉียงเหนือ"
+  address     String?
+  phone       String?
+  missionId   String   @map("mission_id")
+  lineGroupId String?  @map("line_group_id") // LINE group for notifications
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  mission       Mission             @relation(fields: [missionId], references: [id])
+  users         User[]
+  repairOrders  RepairOrder[]
+  queueCounters TradeQueueCounter[]
+  kitchenLogs   KitchenLog[]
+
+  @@index([missionId])
+  @@map("service_centers")
+}
+
+// ─────────────────────────────────────────
+// Customers (PII encrypted at rest)
+// ─────────────────────────────────────────
+
+model Customer {
+  id              String   @id @default(cuid())
+  // AES-256-GCM encrypted fields (stored as hex: IV:TAG:CIPHERTEXT)
+  nationalIdEnc   String   @map("national_id_enc")    // Thai Citizen ID
+  firstNameEnc    String   @map("first_name_enc")
+  lastNameEnc     String   @map("last_name_enc")
+  phone           String?  // Not encrypted — used for lookup
+  phoneHash       String?  @map("phone_hash")          // SHA-256 for duplicate check
+  address         String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  repairOrders RepairOrder[]
+
+  @@index([phoneHash])
+  @@map("customers")
+}
+
+// ─────────────────────────────────────────
+// Repair Orders — Core state machine table
+// ─────────────────────────────────────────
+
+enum TradeCode {
+  ELECTRICAL   // E-xxx
+  ELECTRONICS  // X-xxx
+  AUTOMOTIVE   // A-xxx
+  KITCHEN      // K-xxx ครัวอาชีวะ (ข้าวกล่อง/เสบียงแจกจ่าย)
+}
+
+// ─────────────────────────────────────────
+// Repair Categories / Device Types
+// ─────────────────────────────────────────
+
+model RepairCategory {
+  id          String    @id @default(cuid())
+  code        String    @unique // e.g. "E01", "X01", "A01"
+  name        String    // e.g. "พัดลม", "โทรทัศน์", "มอเตอร์ไซค์"
+  tradeCode   TradeCode @map("trade_code") // ELECTRICAL | ELECTRONICS | AUTOMOTIVE
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([tradeCode])
+  @@index([isActive])
+  @@map("repair_categories")
+}
+
+enum RepairStatus {
+  PENDING         // Registered, awaiting technician
+  DIAGNOSING      // Technician is assessing
+  WAITING_PARTS   // Parts ordered / unavailable
+  REPAIRING       // Active repair in progress
+  QC_PENDING      // Awaiting supervisor QC
+  COMPLETED       // Repair done, QC passed
+  CLOSED          // Customer collected, signatures done
+  CANCELLED       // Voided
+}
+
+model RepairOrder {
+  id              String       @id @default(cuid())
+  queueNumber     String       @unique @map("queue_number") // e.g. "E-042"
+  tradeCode       TradeCode    @map("trade_code")
+  status          RepairStatus @default(PENDING)
+  missionId       String       @map("mission_id")
+  centerId        String       @map("center_id")
+  customerId      String       @map("customer_id")
+  assignedToId    String?      @map("assigned_to_id")
+
+  // Device info
+  deviceCategory  String       @map("device_category")
+  deviceBrand     String?      @map("device_brand")
+  deviceModel     String?      @map("device_model")
+  serialNumber    String?      @map("serial_number")
+  problemDesc     String       @map("problem_desc") @db.Text
+  // Photos & Identification
+  problemImages     String[]     @map("problem_images") // URLs/base64
+  deviceCondition   String?      @map("device_condition") @db.Text
+  accessories       String?      @map("accessories") @db.Text
+  additionalDetails String?      @map("additional_details") @db.Text
+  idCardImage       String?      @map("id_card_image") @db.Text
+
+  // Handover & Signatures (for delivery)
+  handoverBy        String?      @map("handover_by")
+  customerSignature String?      @map("customer_signature") @db.Text
+  handoverSignature String?      @map("handover_signature") @db.Text
+  handoverNotes     String?      @map("handover_notes") @db.Text
+
+  // Economic value (filled at QC)
+  partsCost       Decimal?     @map("parts_cost")      @db.Decimal(12, 2)
+  marketRepairCost Decimal?    @map("market_repair_cost") @db.Decimal(12, 2)
+  economicValueSaved Decimal?  @map("economic_value_saved") @db.Decimal(12, 2)
+
+  // QR code payload (UUID for tagging hardware)
+  qrToken         String       @unique @default(uuid()) @map("qr_token")
+
+  // Timestamps
+  registeredAt    DateTime     @default(now()) @map("registered_at")
+  startedAt       DateTime?    @map("started_at")
+  completedAt     DateTime?    @map("completed_at")
+  closedAt        DateTime?    @map("closed_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Notes
+  technicianNotes String?      @map("technician_notes") @db.Text
+  supervisorNotes String?      @map("supervisor_notes") @db.Text
+
+  mission      Mission           @relation(fields: [missionId], references: [id])
+  center       ServiceCenter     @relation(fields: [centerId], references: [id])
+  customer     Customer          @relation(fields: [customerId], references: [id])
+  assignedTo   User?             @relation("AssignedTechnician", fields: [assignedToId], references: [id])
+
+  statusHistory  StatusHistory[]
+  repairItems    RepairItem[]
+  signatures     Signature[]
+  checklists     InspectionChecklist[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+
+  @@index([centerId])
+  @@index([missionId])
+  @@index([status])
+  @@index([tradeCode])
+  @@index([qrToken])
+  @@index([registeredAt])
+  @@map("repair_orders")
+}
+
+model StatusHistory {
+  id            String       @id @default(cuid())
+  repairOrderId String       @map("repair_order_id")
+  fromStatus    RepairStatus? @map("from_status")
+  toStatus      RepairStatus @map("to_status")
+  changedById   String?      @map("changed_by_id")
+  note          String?
+  changedAt     DateTime     @default(now()) @map("changed_at")
+
+  repairOrder RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+
+  @@index([repairOrderId])
+  @@map("status_history")
+}
+
+// ─────────────────────────────────────────
+// Trade Queue Counters (atomic via Redis)
+// ─────────────────────────────────────────
+
+model TradeQueueCounter {
+  id           String    @id @default(cuid())
+  centerId     String    @map("center_id")
+  missionId    String    @map("mission_id")
+  tradeCode    TradeCode @map("trade_code")
+  currentValue Int       @default(0) @map("current_value")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  center  ServiceCenter @relation(fields: [centerId], references: [id])
+  mission Mission       @relation(fields: [missionId], references: [id])
+
+  @@unique([centerId, missionId, tradeCode])
+  @@map("trade_queue_counters")
+}
+
+// ─────────────────────────────────────────
+// Repair Items (Parts)
+// ─────────────────────────────────────────
+
+model RepairItem {
+  id            String   @id @default(cuid())
+  repairOrderId String   @map("repair_order_id")
+  description   String
+  quantity      Int      @default(1)
+  unitCost      Decimal  @map("unit_cost") @db.Decimal(10, 2)
+  totalCost     Decimal  @map("total_cost") @db.Decimal(10, 2)
+  isProcured    Boolean  @default(false) @map("is_procured")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  repairOrder RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+
+  @@index([repairOrderId])
+  @@map("repair_items")
+}
+
+// ─────────────────────────────────────────
+// Signatures (Canvas base64)
+// ─────────────────────────────────────────
+
+enum SignatureType {
+  SUPERVISOR
+  CUSTOMER
+  REGISTRAR
+}
+
+model Signature {
+  id            String        @id @default(cuid())
+  repairOrderId String        @map("repair_order_id")
+  type          SignatureType
+  dataBase64    String        @map("data_base64") @db.Text
+  signerName    String?       @map("signer_name")
+  signedAt      DateTime      @default(now()) @map("signed_at")
+
+  repairOrder RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+
+  @@index([repairOrderId])
+  @@map("signatures")
+}
+
+// ─────────────────────────────────────────
+// Inspection Checklists (QC)
+// ─────────────────────────────────────────
+
+model InspectionChecklist {
+  id            String   @id @default(cuid())
+  repairOrderId String   @map("repair_order_id")
+  // criteria stored as JSON array: [{id, label, passed, notes}]
+  criteria      Json
+  overallPassed Boolean  @map("overall_passed")
+  checkedById   String?  @map("checked_by_id")
+  checkedAt     DateTime @default(now()) @map("checked_at")
+  notes         String?  @db.Text
+
+  repairOrder RepairOrder @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+
+  @@index([repairOrderId])
+  @@map("inspection_checklists")
+}
+
+// ─────────────────────────────────────────
+// Notifications (LINE Messaging API)
+// ─────────────────────────────────────────
+
+enum NotificationChannel {
+  LINE
+  EMAIL
+  SMS
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id            String              @id @default(cuid())
+  repairOrderId String?             @map("repair_order_id")
+  channel       NotificationChannel
+  status        NotificationStatus  @default(PENDING)
+  recipient     String              // LINE userId or group ID
+  message       String              @db.Text
+  errorMessage  String?             @map("error_message")
+  sentAt        DateTime?           @map("sent_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  repairOrder RepairOrder? @relation(fields: [repairOrderId], references: [id])
+
+  @@index([repairOrderId])
+  @@index([status])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────
+// Audit Logs
+// ─────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?  @map("user_id")
+  repairOrderId String?  @map("repair_order_id")
+  action        String   // e.g. "CREATE_ORDER", "UPDATE_STATUS"
+  details       Json?
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user        User?        @relation(fields: [userId], references: [id])
+  repairOrder RepairOrder? @relation(fields: [repairOrderId], references: [id])
+
+  @@index([userId])
+  @@index([repairOrderId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────
+// Kitchen Logs (ครัวอาชีวะ — บันทึกสถิติการแจกจ่าย)
+// ─────────────────────────────────────────
+
+model KitchenLog {
+  id              String         @id @default(cuid())
+  missionId       String         @map("mission_id")
+  centerId        String         @map("center_id")
+  serviceDate     DateTime       @default(now()) @map("service_date")
+  menuName        String         @map("menu_name")
+  categoryCode    String         @default("K01") @map("category_code")
+  quantity        Int            @default(0)
+  unit            String         @default("กล่อง")
+  targetLocation  String         @map("target_location")
+  recipientOrg    String?        @map("recipient_org")
+  coordinatorName String?        @map("coordinator_name")
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  mission         Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  center          ServiceCenter  @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@index([centerId])
+  @@index([missionId])
+  @@index([serviceDate])
+  @@map("kitchen_logs")
+}
