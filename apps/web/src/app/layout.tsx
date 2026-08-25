@@ -4,7 +4,8 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'ศูนย์ซ่อมสร้างเพื่อชุมชน (FixIt Center) — วิทยาลัยสารพัดช่างน่าน',
   description: 'ศูนย์ซ่อมสร้างเพื่อชุมชน (FixIt Center) วิทยาลัยสารพัดช่างน่าน',
-  manifest: '/manifest.json',
+  manifest: '/fixitcenter/manifest.json',
+  icons: '/fixitcenter/logo.png',
 };
 
 export const viewport: Viewport = {
