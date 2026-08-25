@@ -35,6 +35,7 @@ if [ "$LOCAL" != "$REMOTE" ]; then
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] 🔨 Building and starting containers..." >> "$LOG"
         $COMPOSE_CMD up -d --build >> "$LOG" 2>&1
         $COMPOSE_CMD exec -T api pnpm db:migrate >> "$LOG" 2>&1
+        $COMPOSE_CMD exec -T api pnpm db:seed >> "$LOG" 2>&1
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Auto-deploy complete and online!" >> "$LOG"
     else
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ Error: Docker Compose command not found in PATH" >> "$LOG"
