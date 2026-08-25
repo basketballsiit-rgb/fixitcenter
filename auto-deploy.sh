@@ -22,20 +22,22 @@ fi
 # Fetch remote changes
 git fetch origin main > /dev/null 2>&1
 
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/main)
+LOCAL=$(git rev-parse HEAD 2>/dev/null)
+REMOTE=$(git rev-parse origin/main 2>/dev/null)
 
-# Check if containers are currently running
-API_STATUS=$(docker ps --filter "name=npc_api" --format "{{.Status}}" 2>/dev/null)
+API_STATUS=$(docker ps --filter "name=npc_api" --filter "status=running" -q 2>/dev/null)
 
 if [ "$LOCAL" != "$REMOTE" ] || [ -z "$API_STATUS" ] || [ "$1" == "--force" ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 🔄 Changes detected or API offline. Deploying..." >> "$LOG"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 🔄 Changes detected ($LOCAL -> $REMOTE). Deploying..." >> "$LOG"
     
+    # Ensure clean pull without conflicts
+    git reset --hard origin/main >> "$LOG" 2>&1
     git pull origin main >> "$LOG" 2>&1
 
     if [ -n "$COMPOSE_CMD" ]; then
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] 🔨 Building and starting all containers..." >> "$LOG"
-        $COMPOSE_CMD up -d --build >> "$LOG" 2>&1
+        $COMPOSE_CMD build --no-cache web api >> "$LOG" 2>&1
+        $COMPOSE_CMD up -d >> "$LOG" 2>&1
         $COMPOSE_CMD exec -T api pnpm db:migrate >> "$LOG" 2>&1
         $COMPOSE_CMD exec -T api pnpm db:seed >> "$LOG" 2>&1
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Auto-deploy complete! FixIt Center is ONLINE." >> "$LOG"

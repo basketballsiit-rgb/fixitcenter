@@ -66,8 +66,23 @@ export interface AuthResponse {
 }
 
 export const authApi = {
-  login: (credentials: LoginCredentials) =>
-    api.post<AuthResponse>('/auth/login', credentials),
+  login: async (credentials: LoginCredentials) => {
+    if (typeof window !== 'undefined') {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err: any = new Error(data.message || 'Login failed');
+        err.response = { status: res.status, data };
+        throw err;
+      }
+      return { data };
+    }
+    return api.post<AuthResponse>('/auth/login', credentials);
+  },
   me: () => api.get<AuthResponse['user']>('/auth/me'),
 };
 
