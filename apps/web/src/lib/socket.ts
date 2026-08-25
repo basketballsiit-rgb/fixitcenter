@@ -6,9 +6,16 @@ export function getSocket(): Socket {
   if (!socket) {
     const token =
       typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    socket = io((process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001') + '/ws', {
+    
+    // In browser, connect to current host with path /ws
+    const wsUrl = typeof window !== 'undefined'
+      ? `${window.location.protocol === 'https:' ? 'https:' : 'http:'}//${window.location.host}`
+      : (process.env.NEXT_PUBLIC_WS_URL || 'http://api:3001');
+
+    socket = io(wsUrl, {
+      path: '/ws/socket.io',
       auth: { token },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

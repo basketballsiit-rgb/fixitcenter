@@ -1,10 +1,16 @@
 import axios, { AxiosInstance } from 'axios';
 
-const RAW_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-const API_URL = RAW_URL.endsWith('/api') ? RAW_URL : `${RAW_URL}/api`;
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // In browser: automatically use the current host /api
+    return '/api';
+  }
+  const raw = process.env.NEXT_PUBLIC_API_URL || 'http://api:3001';
+  return raw.endsWith('/api') ? raw : `${raw}/api`;
+};
 
 const api: AxiosInstance = axios.create({
-  baseURL: API_URL,
+  baseURL: getApiBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });
