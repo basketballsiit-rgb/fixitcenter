@@ -15,10 +15,11 @@ const api: AxiosInstance = axios.create({
   timeout: 15000,
 });
 
-// Request interceptor: inject Bearer token
+// Request interceptor: inject Bearer token and enforce relative /api in browser
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
+      config.baseURL = '/api';
       const token = localStorage.getItem('access_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
