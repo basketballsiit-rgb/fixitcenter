@@ -28,10 +28,10 @@ async function bootstrap() {
 
   // ── CORS ──────────────────────────────────────────────────────────────────
   app.enableCors({
-    origin: [corsOrigin, 'http://localhost:3000', 'http://localhost:3001'],
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   });
 
   // ── WebSocket adapter ─────────────────────────────────────────────────────
