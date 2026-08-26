@@ -1,4 +1,6 @@
 FROM node:20-alpine AS base
+# Install openssl and libc6-compat for Prisma compatibility
+RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 # 1. Install dependencies based on lockfile
@@ -9,12 +11,13 @@ COPY packages/shared ./packages/shared
 COPY apps/api/package.json ./apps/api/package.json
 COPY prisma ./prisma
 RUN pnpm install
+RUN pnpm --filter @npc/api exec prisma generate
 
 # 2. Build application
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app ./
-COPY . .
+COPY . .\
 RUN pnpm --filter @npc/api build
 
 # 3. Production runner
