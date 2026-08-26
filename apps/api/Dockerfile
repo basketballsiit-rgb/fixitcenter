@@ -12,7 +12,8 @@ COPY packages/shared ./packages/shared
 COPY apps/api/package.json ./apps/api/package.json
 COPY prisma ./prisma
 RUN pnpm install --no-frozen-lockfile
-RUN pnpm --filter @npc/api exec prisma generate
+# Run prisma generate from workspace root where schema.prisma lives
+RUN pnpm exec prisma generate --schema ./prisma/schema.prisma
 
 # 2. Build application
 FROM base AS builder
