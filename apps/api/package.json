@@ -8,7 +8,12 @@
     "start": "node dist/main",
     "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix",
     "type-check": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "db:migrate": "prisma migrate deploy --schema ../../prisma/schema.prisma",
+    "db:seed": "ts-node --transpile-only ../../prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "ts-node --transpile-only ../../prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
