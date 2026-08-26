@@ -2,8 +2,9 @@ import axios, { AxiosInstance } from 'axios';
 
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
-    // In browser: automatically use the current host /api
-    return '/api';
+    // Browser: route through Next.js rewrite → http://api:3001/api/:path*
+    // No separate /api Nginx location needed, avoiding conflicts with other services
+    return '/fixitcenter/api';
   }
   const raw = process.env.NEXT_PUBLIC_API_URL || 'http://api:3001';
   return raw.endsWith('/api') ? raw : `${raw}/api`;
@@ -15,11 +16,11 @@ const api: AxiosInstance = axios.create({
   timeout: 15000,
 });
 
-// Request interceptor: inject Bearer token and enforce relative /api in browser
+// Request interceptor: inject Bearer token and route through Next.js rewrite
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      config.baseURL = '/api';
+      config.baseURL = '/fixitcenter/api';
       const token = localStorage.getItem('access_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -68,7 +69,8 @@ export interface AuthResponse {
 export const authApi = {
   login: async (credentials: LoginCredentials) => {
     if (typeof window !== 'undefined') {
-      const res = await fetch('/api/auth/login', {
+      // Use /fixitcenter/api so Next.js rewrites proxy to http://api:3001/api internally
+      const res = await fetch('/fixitcenter/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),

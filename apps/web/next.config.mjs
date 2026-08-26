@@ -15,8 +15,14 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        // /fixitcenter/api/:path* → http://api:3001/api/:path* (internal Docker network)
         source: '/api/:path*',
         destination: 'http://api:3001/api/:path*',
+      },
+      {
+        // /fixitcenter/ws/:path* → http://api:3001/ws/:path* (internal Docker network)
+        source: '/ws/:path*',
+        destination: 'http://api:3001/ws/:path*',
       },
     ];
   },
