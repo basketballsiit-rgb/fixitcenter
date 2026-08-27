@@ -12,8 +12,24 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 
 DIR="/var/www/fixitcenter"
 LOG="/var/log/fixit_deploy.log"
+LOCK="/var/run/fixit_deploy.lock"
 
 cd "$DIR" || exit 1
+
+# ─── Lock: prevent concurrent builds ─────────────────────────────────────────
+if [ "$1" != "--force" ]; then
+    if [ -f "$LOCK" ]; then
+        LOCK_PID=$(cat "$LOCK" 2>/dev/null)
+        if kill -0 "$LOCK_PID" 2>/dev/null; then
+            # Previous build still running — skip this cron run
+            exit 0
+        else
+            rm -f "$LOCK"  # Stale lock
+        fi
+    fi
+fi
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT  # Always remove lock when script exits
 
 # Detect docker compose
 if docker compose version >/dev/null 2>&1; then
