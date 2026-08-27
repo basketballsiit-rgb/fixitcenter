@@ -77,6 +77,7 @@ export class RepairOrdersController {
     return this.service.update(id, dto, req?.user?.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @ApiOperation({ summary: 'Delete repair order and history (Admin only)' })
   remove(
