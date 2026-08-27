@@ -84,6 +84,9 @@ export class CentersService {
       data: { centerId: null },
     });
 
+    // Delete queue counters linked to this center (FK constraint: trade_queue_counters_center_id_fkey)
+    await this.prisma.tradeQueueCounter.deleteMany({ where: { centerId: id } });
+
     return this.prisma.serviceCenter.delete({ where: { id } });
   }
 }
