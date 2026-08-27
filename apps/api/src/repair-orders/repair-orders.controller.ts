@@ -85,8 +85,14 @@ export class RepairOrdersController {
     @Request() req: any,
   ) {
     const user = req?.user;
-    const roleName = user?.role?.name || user?.role || '';
-    if (roleName !== 'ADMIN' && !user?.permissions?.includes('repair_orders:delete')) {
+    // Debug: log actual user payload to diagnose role check issues
+    console.log('[DELETE repair-order] req.user =', JSON.stringify(user));
+    const roleRaw = user?.role;
+    const roleName = (typeof roleRaw === 'string' ? roleRaw : roleRaw?.name) || '';
+    console.log('[DELETE repair-order] roleName =', roleName);
+    const isAdmin = roleName.toUpperCase() === 'ADMIN';
+    const hasPermission = Array.isArray(user?.permissions) && user.permissions.includes('repair_orders:delete');
+    if (!isAdmin && !hasPermission) {
       throw new ForbiddenException('เฉพาะผู้ดูแลระบบหลัก (Admin) เท่านั้นที่มีสิทธิ์ลบข้อมูลการลงทะเบียนงานซ่อม');
     }
     return this.service.delete(id, user?.id);
