@@ -24,7 +24,7 @@ import {
 import { SmartCardReader } from '@/components/smart-card-reader/smart-card-reader';
 import { SignaturePad } from '@/components/signature-pad/signature-pad';
 import {
-  repairOrderApi, centerApi, missionApi, categoryApi,
+  repairOrderApi, centerApi, missionApi, categoryApi, vehicleApi,
   type Center, type Mission, type RepairCategory
 } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
