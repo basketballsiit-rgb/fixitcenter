@@ -86,6 +86,15 @@ export default function LandingPortalPage() {
       actionText: 'เข้าสู่ระบบครัวอาชีวะ',
     },
     {
+      title: 'ติดตามสถานะงานซ่อม (สำหรับประชาชน)',
+      desc: 'ประชาชนผู้ขอรับบริการสามารถตรวจสอบสถานะคิวงานซ่อมแบบเรียลไทม์ได้ด้วยตนเองโดยไม่ต้องล็อกอิน',
+      icon: Search,
+      href: '/track',
+      color: 'from-amber-500 to-orange-600',
+      badge: 'สำหรับประชาชน',
+      actionText: '🔍 ติดตามสถานะงานซ่อม',
+    },
+    {
       title: 'กระดานคิวอัจฉริยะ (TV Board)',
       desc: 'หน้าจอกระดานคิวขนาดใหญ่สำหรับ Smart TV แสดงลำดับคิวและสถานะงานซ่อม Real-time',
       icon: Monitor,

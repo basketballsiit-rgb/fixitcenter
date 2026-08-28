@@ -53,11 +53,12 @@ export function PrintLayout({
   const [qrDataUrl, setQrDataUrl] = useState('');
 
   useEffect(() => {
-    QRCode.toDataURL(
-      JSON.stringify({ queueNumber, nationalId: customer.nationalId }),
-      { width: 90, margin: 1, errorCorrectionLevel: 'M' }
-    ).then(setQrDataUrl).catch(() => {});
-  }, [queueNumber, customer.nationalId]);
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://service.npc.ac.th';
+    const trackUrl = `${origin}/fixitcenter/track?q=${encodeURIComponent(queueNumber)}`;
+    QRCode.toDataURL(trackUrl, { width: 90, margin: 1, errorCorrectionLevel: 'M' })
+      .then(setQrDataUrl)
+      .catch(() => {});
+  }, [queueNumber]);
 
   // Use the actual registration date/time from record
   const recordDate = registeredAt ? new Date(registeredAt) : new Date();
