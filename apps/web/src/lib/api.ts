@@ -494,6 +494,46 @@ export const vehicleApi = {
   delete: (id: string) => api.delete(`/vehicle-logs/${id}`),
 };
 
+export interface ApplianceLog {
+  id: string;
+  missionId: string;
+  centerId: string;
+  serviceDate: string;
+  serviceDetails: string;
+  applianceType: string;
+  serviceCount: number;
+  completedCount: number;
+  budgetPerUnit?: number | null;
+  totalBudget?: number | null;
+  targetLocation?: string | null;
+  recipientOrg?: string | null;
+  coordinatorName?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  center?: { id: string; name: string; code: string };
+  mission?: { id: string; name: string; fiscalYear: number };
+}
+
+export interface ApplianceSummary {
+  totalEntries: number;
+  totalServices: number;
+  totalCompleted: number;
+  totalBudget: number;
+}
+
+export const applianceApi = {
+  getAll: (centerId?: string, missionId?: string) =>
+    api.get<ApplianceLog[]>('/appliance-logs', { params: { centerId, missionId } }),
+  getSummary: (centerId?: string, missionId?: string) =>
+    api.get<ApplianceSummary>('/appliance-logs/summary', { params: { centerId, missionId } }),
+  getById: (id: string) => api.get<ApplianceLog>(`/appliance-logs/${id}`),
+  create: (data: Partial<ApplianceLog>) => api.post<ApplianceLog>('/appliance-logs', data),
+  update: (id: string, data: Partial<ApplianceLog>) => api.patch<ApplianceLog>(`/appliance-logs/${id}`, data),
+  delete: (id: string) => api.delete(`/appliance-logs/${id}`),
+};
+
+
 
 export default api;
 

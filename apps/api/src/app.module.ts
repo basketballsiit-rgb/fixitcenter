@@ -15,6 +15,7 @@ import { EncryptionModule } from './common/encryption/encryption.module';
 import { CategoriesModule } from './categories/categories.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { VehicleLogsModule } from './vehicle-logs/vehicle-logs.module';
+import { ApplianceLogsModule } from './appliance-logs/appliance-logs.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { VehicleLogsModule } from './vehicle-logs/vehicle-logs.module';
     CategoriesModule,
     KitchenModule,
     VehicleLogsModule,
+    ApplianceLogsModule,
   ],
 })
 export class AppModule {}

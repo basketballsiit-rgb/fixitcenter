@@ -24,7 +24,7 @@ import {
 import { SmartCardReader } from '@/components/smart-card-reader/smart-card-reader';
 import { SignaturePad } from '@/components/signature-pad/signature-pad';
 import {
-  repairOrderApi, centerApi, missionApi, categoryApi, vehicleApi,
+  repairOrderApi, centerApi, missionApi, categoryApi, vehicleApi, applianceApi,
   type Center, type Mission, type RepairCategory
 } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
@@ -573,6 +573,28 @@ export default function RegistrationPage() {
           });
         } catch (vErr) {
           console.warn('Vehicle log sync:', vErr);
+        }
+      }
+
+      // Auto-sync into Appliance Report Logs if trade is ELECTRICAL or ELECTRONICS
+      if (trade === 'ELECTRICAL' || trade === 'ELECTRONICS') {
+        try {
+          const applianceCatName = selectedCategory?.name || data.customDeviceDetails || (trade === 'ELECTRICAL' ? 'เครื่องใช้ไฟฟ้าทั่วไป' : 'อุปกรณ์อิเล็กทรอนิกส์');
+          await applianceApi.create({
+            missionId: data.missionId,
+            centerId: data.centerId,
+            serviceDate: new Date().toISOString().split('T')[0],
+            applianceType: applianceCatName,
+            serviceDetails: fullProblemDesc || 'ล้างทำความสะอาด ตรวจเช็ค ซ่อม-เปลี่ยนอะไหล่ เครื่องใช้ไฟฟ้า /อุปกรณ์วิชาชีพ',
+            serviceCount: 1,
+            completedCount: 1,
+            budgetPerUnit: 100,
+            totalBudget: 100,
+            targetLocation: centerObj?.address || data.address || '',
+            notes: `คิว: ${newQueue} | ${deviceBrand} ${deviceModel}`,
+          });
+        } catch (aErr) {
+          console.warn('Appliance log sync:', aErr);
         }
       }
       

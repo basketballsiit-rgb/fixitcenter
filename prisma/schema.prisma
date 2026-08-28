@@ -96,6 +96,7 @@ model Mission {
   queueCounters TradeQueueCounter[]
   kitchenLogs  KitchenLog[]
   vehicleLogs  VehicleLog[]
+  applianceLogs ApplianceLog[]
 
   @@index([fiscalYear])
   @@index([isActive])
@@ -125,6 +126,7 @@ model ServiceCenter {
   queueCounters TradeQueueCounter[]
   kitchenLogs   KitchenLog[]
   vehicleLogs   VehicleLog[]
+  applianceLogs ApplianceLog[]
 
   @@index([missionId])
   @@map("service_centers")
@@ -480,4 +482,35 @@ model VehicleLog {
   @@index([missionId])
   @@index([serviceDate])
   @@map("vehicle_logs")
+}
+
+// ─────────────────────────────────────────
+// Appliance Logs (เครื่องใช้ไฟฟ้า / อุปกรณ์วิชาชีพ — ล้างทำความสะอาด ตรวจเช็ค ซ่อม-เปลี่ยนอะไหล่)
+// ─────────────────────────────────────────
+
+model ApplianceLog {
+  id              String         @id @default(cuid())
+  missionId       String         @map("mission_id")
+  centerId        String         @map("center_id")
+  serviceDate     DateTime       @default(now()) @map("service_date")
+  serviceDetails  String         @map("service_details") @db.Text // รายละเอียดการดำเนินงาน (เช่น ล้างบอร์ด, เปลี่ยน C, ซ่อมมอเตอร์, เปลี่ยนฟิวส์)
+  applianceType   String         @default("เครื่องใช้ไฟฟ้าทั่วไป") @map("appliance_type") // พัดลม, หม้อหุงข้าว, ตู้เย็น, เครื่องซักผ้า, เครื่องมือช่าง ฯลฯ
+  serviceCount    Int            @default(1) @map("service_count") // จำนวนที่ให้บริการ (เครื่อง/ชิ้น)
+  completedCount  Int            @default(1) @map("completed_count") // จำนวนที่ซ่อมสำเร็จ (เครื่อง/ชิ้น)
+  budgetPerUnit   Decimal?       @map("budget_per_unit") @db.Decimal(10, 2) // งบประมาณในการดำเนินงาน/ชิ้น
+  totalBudget     Decimal?       @map("total_budget") @db.Decimal(12, 2) // งบประมาณทั้งสิ้น
+  targetLocation  String?        @map("target_location") // พื้นที่ / จุดที่ให้บริการ
+  recipientOrg    String?        @map("recipient_org")
+  coordinatorName String?        @map("coordinator_name") // ครูผู้ควบคุม / หัวหน้าชุด
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  mission         Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  center          ServiceCenter  @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@index([centerId])
+  @@index([missionId])
+  @@index([serviceDate])
+  @@map("appliance_logs")
 }
