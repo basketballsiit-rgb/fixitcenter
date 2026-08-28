@@ -193,7 +193,7 @@ export default function RegistrationPage() {
     device: { tradeCode: string; brand?: string; problemDesc: string; accessories?: string };
   } | null>(null);
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, watch, getValues, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       missionId: '',
@@ -454,10 +454,12 @@ export default function RegistrationPage() {
 
   // Start New Registration (Reset)
   const handleStartNewRegistration = () => {
+    const currentMissionId = getValues('missionId') || missions[0]?.id || '';
+    const currentCenterId = !isSuperAdmin && userCenterId ? userCenterId : (getValues('centerId') || queryCenterId || centers[0]?.id || '');
     reset({
-      missionId: selectedMission || missions[0]?.id || '',
-      centerId: selectedCenter || centers[0]?.id || '',
-      tradeCode: 'ELECTRICAL',
+      missionId: currentMissionId,
+      centerId: currentCenterId,
+      tradeCode: '',
       firstName: '',
       lastName: '',
       nationalId: '',
