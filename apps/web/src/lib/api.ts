@@ -420,6 +420,11 @@ export interface KitchenLog {
   menuName: string;
   categoryCode: string;
   quantity: number;
+  boxQty?: number;
+  waterQty?: number;
+  reliefQty?: number;
+  budgetPerUnit?: number | null;
+  totalBudget?: number | null;
   unit: string;
   targetLocation: string;
   recipientOrg?: string | null;

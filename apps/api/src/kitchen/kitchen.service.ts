@@ -69,6 +69,18 @@ export class KitchenService {
   }
 
   async create(dto: CreateKitchenLogDto) {
+    const boxQty = dto.boxQty ?? (dto.categoryCode === 'K01' ? dto.quantity || 0 : 0);
+    const waterQty = dto.waterQty ?? (dto.categoryCode === 'K02' ? dto.quantity || 0 : 0);
+    const reliefQty = dto.reliefQty ?? (dto.categoryCode === 'K03' ? dto.quantity || 0 : 0);
+    const totalQty = dto.quantity ?? (boxQty + waterQty + reliefQty);
+
+    const budgetPerUnit = dto.budgetPerUnit ? Number(dto.budgetPerUnit) : null;
+    const totalBudget = dto.totalBudget
+      ? Number(dto.totalBudget)
+      : budgetPerUnit
+      ? budgetPerUnit * totalQty
+      : null;
+
     return this.prisma.kitchenLog.create({
       data: {
         missionId: dto.missionId,
@@ -76,7 +88,12 @@ export class KitchenService {
         serviceDate: dto.serviceDate ? new Date(dto.serviceDate) : new Date(),
         menuName: dto.menuName,
         categoryCode: dto.categoryCode || 'K01',
-        quantity: dto.quantity,
+        quantity: totalQty,
+        boxQty,
+        waterQty,
+        reliefQty,
+        budgetPerUnit,
+        totalBudget,
         unit: dto.unit || 'กล่อง',
         targetLocation: dto.targetLocation,
         recipientOrg: dto.recipientOrg || null,
@@ -94,6 +111,8 @@ export class KitchenService {
     await this.findById(id);
     const data: any = { ...dto };
     if (dto.serviceDate) data.serviceDate = new Date(dto.serviceDate);
+    if (dto.budgetPerUnit !== undefined) data.budgetPerUnit = dto.budgetPerUnit ? Number(dto.budgetPerUnit) : null;
+    if (dto.totalBudget !== undefined) data.totalBudget = dto.totalBudget ? Number(dto.totalBudget) : null;
 
     return this.prisma.kitchenLog.update({
       where: { id },

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsNumber, Min } from 'class-validator';
 
 export class CreateKitchenLogDto {
   @IsString()
@@ -21,9 +21,29 @@ export class CreateKitchenLogDto {
   @IsString()
   categoryCode?: string;
 
+  @IsOptional()
   @IsInt()
-  @Min(1)
-  quantity: number;
+  quantity?: number;
+
+  @IsOptional()
+  @IsInt()
+  boxQty?: number;
+
+  @IsOptional()
+  @IsInt()
+  waterQty?: number;
+
+  @IsOptional()
+  @IsInt()
+  reliefQty?: number;
+
+  @IsOptional()
+  @IsNumber()
+  budgetPerUnit?: number;
+
+  @IsOptional()
+  @IsNumber()
+  totalBudget?: number;
 
   @IsOptional()
   @IsString()
@@ -69,8 +89,27 @@ export class UpdateKitchenLogDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
   quantity?: number;
+
+  @IsOptional()
+  @IsInt()
+  boxQty?: number;
+
+  @IsOptional()
+  @IsInt()
+  waterQty?: number;
+
+  @IsOptional()
+  @IsInt()
+  reliefQty?: number;
+
+  @IsOptional()
+  @IsNumber()
+  budgetPerUnit?: number;
+
+  @IsOptional()
+  @IsNumber()
+  totalBudget?: number;
 
   @IsOptional()
   @IsString()

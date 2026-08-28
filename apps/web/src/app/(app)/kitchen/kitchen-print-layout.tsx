@@ -11,6 +11,7 @@ export interface KitchenPrintLayoutProps {
   centers: Center[];
   missions: Mission[];
   collegeName?: string;
+  provinceName?: string;
 }
 
 export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
@@ -20,36 +21,59 @@ export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
   centers,
   missions,
   collegeName = 'วิทยาลัยสารพัดช่างน่าน',
+  provinceName = 'น่าน',
 }) => {
   const currentCenter = centers.find((c) => c.id === selectedCenterId);
   const isAllCenters = selectedCenterId === 'ALL' || !selectedCenterId;
   const activeMission = missions.find((m) => m.isActive) || missions[0];
 
-  const now = new Date();
-  const printedDate = now.toLocaleDateString('th-TH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  const printedTime = now.toLocaleTimeString('th-TH', {
-    hour: '2-digit',
-    minute: '2-digit',
+  // Calculate totals
+  let totalBoxes = 0;
+  let totalWater = 0;
+  let totalRelief = 0;
+  let totalBudgetSum = 0;
+
+  // Find date range
+  let earliestDate: Date | null = null;
+  let latestDate: Date | null = null;
+
+  logs.forEach((log) => {
+    const d = new Date(log.serviceDate);
+    if (!earliestDate || d < earliestDate) earliestDate = d;
+    if (!latestDate || d > latestDate) latestDate = d;
+
+    const bQty = log.boxQty ?? (log.categoryCode === 'K01' ? log.quantity || 0 : 0);
+    const wQty = log.waterQty ?? (log.categoryCode === 'K02' ? log.quantity || 0 : 0);
+    const rQty = log.reliefQty ?? (log.categoryCode === 'K03' ? log.quantity || 0 : 0);
+
+    totalBoxes += bQty;
+    totalWater += wQty;
+    totalRelief += rQty;
+
+    const bTotal = log.totalBudget
+      ? Number(log.totalBudget)
+      : log.budgetPerUnit
+      ? Number(log.budgetPerUnit) * (Number(log.quantity) || (bQty + wQty + rQty))
+      : 0;
+
+    totalBudgetSum += bTotal;
   });
 
-  // Calculate totals
-  const totalBoxes = logs
-    .filter((l) => l.categoryCode === 'K01')
-    .reduce((sum, l) => sum + (Number(l.quantity) || 0), 0);
-  const totalWater = logs
-    .filter((l) => l.categoryCode === 'K02')
-    .reduce((sum, l) => sum + (Number(l.quantity) || 0), 0);
-  const totalRelief = logs
-    .filter((l) => l.categoryCode === 'K03')
-    .reduce((sum, l) => sum + (Number(l.quantity) || 0), 0);
-  const totalOther = logs
-    .filter((l) => l.categoryCode === 'K99' || !['K01', 'K02', 'K03'].includes(l.categoryCode))
-    .reduce((sum, l) => sum + (Number(l.quantity) || 0), 0);
-  const grandTotal = logs.reduce((sum, l) => sum + (Number(l.quantity) || 0), 0);
+  const formatDateThai = (d: Date | null) => {
+    if (!d) return '........';
+    return d.toLocaleDateString('th-TH', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  const calculateDays = () => {
+    if (!earliestDate || !latestDate) return '........';
+    const diffTime = Math.abs(latestDate.getTime() - earliestDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
 
   return (
     <div
@@ -59,119 +83,157 @@ export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
     >
       <div className="w-[210mm] max-w-[210mm] mx-auto p-4 text-[12px] leading-relaxed">
         
-        {/* ── Top Centered Logo ── */}
-        <div className="text-center mb-3">
+        {/* ── Top Official Header (Exact Format from Image) ── */}
+        <div className="text-center mb-4 space-y-1">
+          {/* Logo centered */}
           <div className="flex justify-center mb-1">
             <img
               src={assetUrl('/logo.png')}
-              alt="FixIt Center Logo"
+              alt="Logo"
               className="h-16 w-auto object-contain mx-auto"
             />
           </div>
-          <h1 className="text-base font-bold tracking-tight text-slate-900">
-            ศูนย์ซ่อมสร้างเพื่อชุมชน (Fix it Center)
+
+          <h1 className="text-[14px] font-bold text-slate-950">
+            แบบรายงานการดำเนินงานกิจกรรมอาชีวะอาสา ช่วยเหลือผู้ประสบอุทกภัยในพื้นที่จังหวัด{provinceName}
           </h1>
-          <h2 className="text-sm font-bold text-slate-800 mt-0.5">
-            แบบรายงานสรุปสถิติข้อมูลครัวอาชีวะ (Vocational Kitchen & Relief Report)
+          <h2 className="text-[13px] font-bold text-slate-900">
+            ภายใต้โครงการบูรณาการการพัฒนาทักษะทางวิชาชีพกับการเสริมสร้างคุณลักษณะอันพึงประสงค์
           </h2>
-          
-          {/* Organization / Center Name Header */}
-          <div className="mt-1 text-[13px] font-semibold">
-            {isAllCenters ? (
-              <p className="text-slate-900">
-                หน่วยงาน: <span className="font-bold text-blue-900">{collegeName}</span>{' '}
-                <span className="font-normal text-slate-600">(รายงานข้อมูลสรุปรวมทุกศูนย์บริการ)</span>
-              </p>
-            ) : (
-              <p className="text-slate-900">
-                ศูนย์บริการ: <span className="font-bold text-blue-900">{currentCenter?.name || '-'}</span>{' '}
-                <span className="font-normal text-slate-600">(สังกัด {collegeName})</span>
-              </p>
-            )}
+          <h3 className="text-[13px] font-bold text-slate-900">
+            ของผู้เรียนอาชีวศึกษา (Fix it – จิตอาสา)
+          </h3>
+        </div>
+
+        {/* ── Organization & Mission Info Lines (Exact Format) ── */}
+        <div className="space-y-1.5 text-[12px] mb-4">
+          <div className="flex justify-between">
+            <div className="flex-1">
+              <span>ชื่อสถานศึกษาที่ดำเนินการ </span>
+              <span className="font-semibold border-b border-dotted border-black px-2 min-w-[260px] inline-block">
+                {collegeName}
+              </span>
+            </div>
+            <div className="w-[180px] text-right">
+              <span>จังหวัด </span>
+              <span className="font-semibold border-b border-dotted border-black px-2 min-w-[120px] inline-block text-center">
+                {provinceName}
+              </span>
+            </div>
           </div>
 
-          <div className="flex justify-between items-center text-[11px] text-slate-600 mt-2 border-b pb-1.5 px-1">
-            <span>
-              <strong>ภารกิจ:</strong> {activeMission?.name || 'ภารกิจศูนย์ซ่อมสร้างเพื่อชุมชน'} (ปีงบประมาณ {activeMission?.fiscalYear || '2567'})
+          <div className="flex items-center gap-6">
+            <div>
+              <span className="font-bold text-red-600">กิจกรรม</span>
+              <span className="font-bold text-red-600 ml-6">โรงครัวอาชีวะ</span>
+            </div>
+          </div>
+
+          <div className="flex justify-between">
+            <div className="flex-1">
+              <span>พื้นที่/จุดที่ให้บริการ </span>
+              <span className="font-semibold border-b border-dotted border-black px-2 min-w-[280px] inline-block">
+                {isAllCenters
+                  ? `ทุกศูนย์บริการในสังกัด ${collegeName}`
+                  : `${currentCenter?.name || '-'} ${currentCenter?.address ? `(${currentCenter.address})` : ''}`}
+              </span>
+            </div>
+            <div className="w-[180px] text-right">
+              <span>จังหวัด </span>
+              <span className="font-semibold border-b border-dotted border-black px-2 min-w-[120px] inline-block text-center">
+                {provinceName}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <span>ระยะเวลาที่ร่วมกิจกรรม ระหว่างวันที่ </span>
+            <span className="font-semibold border-b border-dotted border-black px-2 inline-block">
+              {formatDateThai(earliestDate)}
             </span>
-            <span>
-              <strong>พิมพ์รายงานเมื่อ:</strong> {printedDate} เวลา {printedTime} น.
+            <span> ถึงวันที่ </span>
+            <span className="font-semibold border-b border-dotted border-black px-2 inline-block">
+              {formatDateThai(latestDate)}
             </span>
+            <span> รวม </span>
+            <span className="font-bold border-b border-dotted border-black px-3 inline-block text-center font-mono">
+              {calculateDays()}
+            </span>
+            <span> วัน</span>
           </div>
         </div>
 
-        {/* ── Summary Statistics Cards ── */}
-        <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50">
-            <p className="text-[10px] text-slate-600 font-semibold">🍱 ข้าวกล่องปรุงสุก</p>
-            <p className="text-sm font-black text-rose-700">{totalBoxes.toLocaleString()} <span className="text-[10px] font-normal text-slate-600">กล่อง</span></p>
-          </div>
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50">
-            <p className="text-[10px] text-slate-600 font-semibold">💧 น้ำดื่ม/เครื่องดื่ม</p>
-            <p className="text-sm font-black text-blue-700">{totalWater.toLocaleString()} <span className="text-[10px] font-normal text-slate-600">ขวด/แก้ว</span></p>
-          </div>
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50">
-            <p className="text-[10px] text-slate-600 font-semibold">📦 ถุงยังชีพ/เสบียงแห้ง</p>
-            <p className="text-sm font-black text-amber-700">{totalRelief.toLocaleString()} <span className="text-[10px] font-normal text-slate-600">ชุด</span></p>
-          </div>
-          <div className="border-2 border-emerald-600 rounded p-1.5 bg-emerald-50/50">
-            <p className="text-[10px] text-emerald-800 font-bold">📋 ยอดรวมแจกจ่ายทั้งสิ้น</p>
-            <p className="text-sm font-black text-emerald-800">{grandTotal.toLocaleString()} <span className="text-[10px] font-normal text-slate-700">หน่วย ({logs.length} รายการ)</span></p>
-          </div>
-        </div>
-
-        {/* ── Main Data Table ── */}
-        <table className="w-full border-collapse border border-black text-[11px] mb-4">
+        {/* ── Main Data Table (Exact 8 Columns matching Image) ── */}
+        <table className="w-full border-collapse border border-black text-[11px] mb-6">
           <thead>
-            <tr className="bg-slate-100 border-b border-black text-slate-900 font-bold">
-              <th className="border border-black py-1.5 px-2 text-center w-[6%]">ลำดับ</th>
-              <th className="border border-black py-1.5 px-2 text-center w-[14%]">วัน เดือน ปี</th>
-              <th className="border border-black py-1.5 px-2 text-left w-[28%]">เมนูอาหาร / รายการแจกจ่าย</th>
-              <th className="border border-black py-1.5 px-2 text-right w-[12%]">จำนวน</th>
-              <th className="border border-black py-1.5 px-2 text-left w-[20%]">ศูนย์บริการ</th>
-              <th className="border border-black py-1.5 px-2 text-left w-[20%]">พื้นที่เป้าหมาย / ผู้ประสานงาน</th>
+            <tr className="bg-[#e2edd8] border-b border-black text-slate-900 font-bold text-center">
+              <th className="border border-black py-2 px-1 w-[5%]">ที่</th>
+              <th className="border border-black py-2 px-1 w-[12%]">วัน/เดือน/ปี</th>
+              <th className="border border-black py-2 px-2 w-[27%] text-center">รายละเอียดการดำเนินงาน/รายการ</th>
+              <th className="border border-black py-2 px-1 w-[11%]">จำนวนอาหารกล่อง<br/>(กล่อง)</th>
+              <th className="border border-black py-2 px-1 w-[11%]">จำนวนน้ำดื่ม<br/>(ขวด/แก้ว)</th>
+              <th className="border border-black py-2 px-1 w-[11%]">จำนวนถุงยังชีพ<br/>(ชุด)</th>
+              <th className="border border-black py-2 px-1 w-[11%]">งบประมาณในการ<br/>ดำเนินงาน/ชิ้น</th>
+              <th className="border border-black py-2 px-1 w-[12%]">งบประมาณทั้งสิ้น<br/>(บาท)</th>
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={6} className="border border-black py-6 text-center text-slate-500">
-                  - ไม่พบข้อมูลรายการสถิติครัวอาชีวะในช่วงเวลานี้ -
+                <td colSpan={8} className="border border-black py-8 text-center text-slate-500">
+                  - ไม่พบข้อมูลรายการสถิติครัวอาชีวะ -
                 </td>
               </tr>
             ) : (
               logs.map((log, index) => {
                 const dateObj = new Date(log.serviceDate);
-                const thaiDateStr = dateObj.toLocaleDateString('th-TH', {
-                  year: 'numeric',
-                  month: 'short',
+                const thaiDateShort = dateObj.toLocaleDateString('th-TH', {
                   day: 'numeric',
+                  month: 'short',
+                  year: '2-digit',
                 });
 
+                const bQty = log.boxQty ?? (log.categoryCode === 'K01' ? log.quantity || 0 : 0);
+                const wQty = log.waterQty ?? (log.categoryCode === 'K02' ? log.quantity || 0 : 0);
+                const rQty = log.reliefQty ?? (log.categoryCode === 'K03' ? log.quantity || 0 : 0);
+
+                const bPerUnit = log.budgetPerUnit ? Number(log.budgetPerUnit) : null;
+                const bTotal = log.totalBudget
+                  ? Number(log.totalBudget)
+                  : bPerUnit
+                  ? bPerUnit * (Number(log.quantity) || (bQty + wQty + rQty))
+                  : null;
+
                 return (
-                  <tr key={log.id || index} className="border-b border-slate-300">
-                    <td className="border border-black py-1 px-1.5 text-center font-mono">
+                  <tr key={log.id || index} className="border-b border-black text-center align-middle">
+                    <td className="border border-black py-1.5 px-1 font-mono">
                       {index + 1}
                     </td>
-                    <td className="border border-black py-1 px-2 text-center whitespace-nowrap">
-                      {thaiDateStr}
+                    <td className="border border-black py-1.5 px-1 whitespace-nowrap">
+                      {thaiDateShort}
                     </td>
-                    <td className="border border-black py-1 px-2">
+                    <td className="border border-black py-1.5 px-2 text-left">
                       <div className="font-semibold text-slate-900">{log.menuName}</div>
-                      {log.notes && <div className="text-[10px] text-slate-500">{log.notes}</div>}
+                      <div className="text-[10px] text-slate-600">
+                        {isAllCenters && log.center?.name ? `ศูนย์: ${log.center.name} | ` : ''}
+                        {log.targetLocation ? `จุดบริการ: ${log.targetLocation}` : ''}
+                      </div>
+                      {log.notes && <div className="text-[9px] text-slate-500">หมายเหตุ: {log.notes}</div>}
                     </td>
-                    <td className="border border-black py-1 px-2 text-right whitespace-nowrap">
-                      <span className="font-bold">{Number(log.quantity).toLocaleString()}</span>{' '}
-                      <span className="text-[10px] text-slate-600">{log.unit || 'กล่อง'}</span>
+                    <td className="border border-black py-1.5 px-1 font-mono font-semibold">
+                      {bQty > 0 ? bQty.toLocaleString() : '-'}
                     </td>
-                    <td className="border border-black py-1 px-2 text-slate-800">
-                      {log.center?.name || currentCenter?.name || '-'}
+                    <td className="border border-black py-1.5 px-1 font-mono font-semibold">
+                      {wQty > 0 ? wQty.toLocaleString() : '-'}
                     </td>
-                    <td className="border border-black py-1 px-2">
-                      <div>{log.targetLocation || '-'}</div>
-                      {log.coordinatorName && (
-                        <div className="text-[10px] text-slate-500">ผู้ประสาน: {log.coordinatorName}</div>
-                      )}
+                    <td className="border border-black py-1.5 px-1 font-mono font-semibold">
+                      {rQty > 0 ? rQty.toLocaleString() : '-'}
+                    </td>
+                    <td className="border border-black py-1.5 px-1 font-mono text-right pr-2">
+                      {bPerUnit !== null ? bPerUnit.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                    </td>
+                    <td className="border border-black py-1.5 px-1 font-mono text-right pr-2 font-semibold">
+                      {bTotal !== null ? bTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                     </td>
                   </tr>
                 );
@@ -179,34 +241,38 @@ export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
             )}
           </tbody>
           <tfoot>
-            <tr className="bg-slate-100 border-t-2 border-black font-bold text-slate-900">
-              <td colSpan={3} className="border border-black py-2 px-3 text-right">
-                ยอดรวมทั้งหมด ({logs.length} รายการ):
+            <tr className="bg-slate-100 border-t-2 border-black font-bold text-center">
+              <td colSpan={3} className="border border-black py-2 px-2 text-right">
+                รวมทั้งสิ้น ({logs.length} รายการ):
               </td>
-              <td className="border border-black py-2 px-2 text-right text-rose-800 font-black text-[12px]">
-                {grandTotal.toLocaleString()}
+              <td className="border border-black py-2 px-1 font-mono text-rose-800 font-bold">
+                {totalBoxes.toLocaleString()}
               </td>
-              <td colSpan={2} className="border border-black py-2 px-2 text-left text-[10px] text-slate-600">
-                (ข้าวกล่อง {totalBoxes.toLocaleString()} / น้ำดื่ม {totalWater.toLocaleString()} / ถุงยังชีพ {totalRelief.toLocaleString()}
-                {totalOther > 0 ? ` / อื่นๆ ${totalOther.toLocaleString()}` : ''})
+              <td className="border border-black py-2 px-1 font-mono text-blue-800 font-bold">
+                {totalWater.toLocaleString()}
+              </td>
+              <td className="border border-black py-2 px-1 font-mono text-amber-800 font-bold">
+                {totalRelief.toLocaleString()}
+              </td>
+              <td className="border border-black py-2 px-1 text-center text-slate-400">
+                -
+              </td>
+              <td className="border border-black py-2 px-1 font-mono text-right pr-2 text-emerald-800 font-bold">
+                {totalBudgetSum > 0 ? totalBudgetSum.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
               </td>
             </tr>
           </tfoot>
         </table>
 
-        {/* ── Signatures & Authorization ── */}
-        <div className="mt-6 grid grid-cols-2 gap-8 text-[11px]">
-          <div className="text-center space-y-1">
-            <p>ลงชื่อ ............................................................................ ผู้จัดทำ / รายงาน</p>
-            <p>(...........................................................................)</p>
+        {/* ── Official Signature Section (Matching Image - Left blank for sign) ── */}
+        <div className="mt-8 flex justify-end text-[12px]">
+          <div className="w-[320px] text-center space-y-3">
+            <p className="font-semibold text-slate-900">รับรองข้อมูลการดำเนินงานถูกต้อง</p>
+            <div className="pt-2">
+              <p>ลงชื่อ ............................................................................</p>
+              <p className="mt-1">(...........................................................................)</p>
+            </div>
             <p>ตำแหน่ง ............................................................................</p>
-            <p>วันที่ ........... เดือน ............................. พ.ศ. ...............</p>
-          </div>
-          <div className="text-center space-y-1">
-            <p>ลงชื่อ ............................................................................ ผู้ตรวจรับรอง</p>
-            <p>(...........................................................................)</p>
-            <p>ตำแหน่ง ผู้อำนวยการ / หัวหน้าศูนย์ Fix it Center</p>
-            <p>วันที่ ........... เดือน ............................. พ.ศ. ...............</p>
           </div>
         </div>
 
@@ -214,3 +280,4 @@ export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
     </div>
   );
 };
+

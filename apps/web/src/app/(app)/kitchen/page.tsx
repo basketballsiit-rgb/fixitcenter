@@ -88,14 +88,18 @@ export default function KitchenPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Form state
+  // Form state matching official template
   const [formData, setFormData] = useState({
     missionId: '',
     centerId: '',
     serviceDate: new Date().toISOString().split('T')[0],
     categoryCode: 'K01',
     menuName: '',
-    quantity: 100,
+    boxQty: 100,
+    waterQty: 0,
+    reliefQty: 0,
+    budgetPerUnit: 40,
+    totalBudget: 4000,
     unit: 'กล่อง',
     targetLocation: '',
     recipientOrg: '',
@@ -162,11 +166,15 @@ export default function KitchenPage() {
       serviceDate: new Date().toISOString().split('T')[0],
       categoryCode: 'K01',
       menuName: '',
-      quantity: 100,
+      boxQty: 100,
+      waterQty: 0,
+      reliefQty: 0,
+      budgetPerUnit: 40,
+      totalBudget: 4000,
       unit: 'กล่อง',
       targetLocation: '',
       recipientOrg: '',
-      coordinatorName: user?.fullName || '',
+      coordinatorName: '',
       notes: '',
     });
     setIsModalOpen(true);
@@ -174,13 +182,25 @@ export default function KitchenPage() {
 
   const handleOpenEdit = (item: KitchenLog) => {
     setEditingId(item.id);
+    const bQty = item.boxQty ?? (item.categoryCode === 'K01' ? item.quantity || 0 : 0);
+    const wQty = item.waterQty ?? (item.categoryCode === 'K02' ? item.quantity || 0 : 0);
+    const rQty = item.reliefQty ?? (item.categoryCode === 'K03' ? item.quantity || 0 : 0);
+    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : 40;
+    const bTotal = item.totalBudget
+      ? Number(item.totalBudget)
+      : bPerUnit * (Number(item.quantity) || (bQty + wQty + rQty));
+
     setFormData({
       missionId: item.missionId,
       centerId: item.centerId,
       serviceDate: new Date(item.serviceDate).toISOString().split('T')[0],
       categoryCode: item.categoryCode,
       menuName: item.menuName,
-      quantity: item.quantity,
+      boxQty: bQty,
+      waterQty: wQty,
+      reliefQty: rQty,
+      budgetPerUnit: bPerUnit,
+      totalBudget: bTotal,
       unit: item.unit || 'กล่อง',
       targetLocation: item.targetLocation,
       recipientOrg: item.recipientOrg || '',
@@ -192,41 +212,74 @@ export default function KitchenPage() {
 
   const handleCategoryChange = (catCode: string) => {
     const opt = CATEGORY_OPTIONS.find((c) => c.code === catCode);
-    setFormData((prev) => ({
-      ...prev,
-      categoryCode: catCode,
-      unit: opt ? opt.defaultUnit : prev.unit,
-    }));
+    setFormData((prev) => {
+      let bQty = prev.boxQty;
+      let wQty = prev.waterQty;
+      let rQty = prev.reliefQty;
+      if (catCode === 'K01' && bQty === 0) bQty = 100;
+      if (catCode === 'K02' && wQty === 0) wQty = 100;
+      if (catCode === 'K03' && rQty === 0) rQty = 50;
+
+      const totalQty = bQty + wQty + rQty;
+      const bTotal = prev.budgetPerUnit ? prev.budgetPerUnit * totalQty : prev.totalBudget;
+
+      return {
+        ...prev,
+        categoryCode: catCode,
+        unit: opt ? opt.defaultUnit : prev.unit,
+        boxQty: bQty,
+        waterQty: wQty,
+        reliefQty: rQty,
+        totalBudget: bTotal,
+      };
+    });
+  };
+
+  const handleQtyOrBudgetChange = (field: 'boxQty' | 'waterQty' | 'reliefQty' | 'budgetPerUnit' | 'totalBudget', val: number) => {
+    setFormData((prev) => {
+      const next = { ...prev, [field]: val };
+      if (field !== 'totalBudget') {
+        const sumQty = Number(next.boxQty || 0) + Number(next.waterQty || 0) + Number(next.reliefQty || 0);
+        next.totalBudget = Number((sumQty * Number(next.budgetPerUnit || 0)).toFixed(2));
+      }
+      return next;
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.menuName.trim()) {
-      toast({ title: 'กรุณาระบุรายละเอียดเมนู / รายการแจกจ่าย', variant: 'destructive' });
+      toast({ title: 'กรุณาระบุรายละเอียดการดำเนินงาน / รายการอาหาร', variant: 'destructive' });
       return;
     }
     if (!formData.targetLocation.trim()) {
-      toast({ title: 'กรุณาระบุพื้นที่หรือชุมชนเป้าหมาย', variant: 'destructive' });
+      toast({ title: 'กรุณาระบุพื้นที่หรือจุดที่ให้บริการ', variant: 'destructive' });
       return;
     }
-    if (formData.quantity <= 0) {
-      toast({ title: 'จำนวนต้องมากกว่า 0', variant: 'destructive' });
+
+    const totalQty = Number(formData.boxQty || 0) + Number(formData.waterQty || 0) + Number(formData.reliefQty || 0);
+    if (totalQty <= 0) {
+      toast({ title: 'กรุณาระบุจำนวนอาหารกล่อง น้ำดื่ม หรือถุงยังชีพ อย่างน้อย 1 รายการ', variant: 'destructive' });
       return;
     }
 
     setSaving(true);
     try {
+      const payload = {
+        ...formData,
+        quantity: totalQty,
+        boxQty: Number(formData.boxQty || 0),
+        waterQty: Number(formData.waterQty || 0),
+        reliefQty: Number(formData.reliefQty || 0),
+        budgetPerUnit: Number(formData.budgetPerUnit || 0),
+        totalBudget: Number(formData.totalBudget || 0),
+      };
+
       if (editingId) {
-        await kitchenApi.update(editingId, {
-          ...formData,
-          quantity: Number(formData.quantity),
-        });
+        await kitchenApi.update(editingId, payload);
         toast({ title: '✓ บันทึกการแก้ไขข้อมูลสำเร็จ' });
       } else {
-        await kitchenApi.create({
-          ...formData,
-          quantity: Number(formData.quantity),
-        });
+        await kitchenApi.create(payload);
         toast({ title: '✓ บันทึกสถิติครัวอาชีวะสำเร็จ' });
       }
       setIsModalOpen(false);
@@ -441,82 +494,81 @@ export default function KitchenPage() {
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 text-slate-600 font-medium border-b text-xs">
                   <tr>
-                    <th className="py-3 px-4">วันที่</th>
-                    <th className="py-3 px-4">ศูนย์บริการ</th>
-                    <th className="py-3 px-4">หมวด</th>
-                    <th className="py-3 px-4">รายการ / เมนูอาหาร</th>
-                    <th className="py-3 px-4 text-right">จำนวน</th>
-                    <th className="py-3 px-4">พื้นที่ / ชุมชนเป้าหมาย</th>
-                    <th className="py-3 px-4">ผู้รับผิดชอบ / ประสานงาน</th>
-                    <th className="py-3 px-4 text-center no-print">จัดการ</th>
+                    <th className="py-3 px-3 text-center w-[50px]">ที่</th>
+                    <th className="py-3 px-3">วัน/เดือน/ปี</th>
+                    <th className="py-3 px-3">ศูนย์บริการ</th>
+                    <th className="py-3 px-4">รายละเอียดการดำเนินงาน/รายการ</th>
+                    <th className="py-3 px-3 text-right">อาหารกล่อง</th>
+                    <th className="py-3 px-3 text-right">น้ำดื่ม</th>
+                    <th className="py-3 px-3 text-right">ถุงยังชีพ</th>
+                    <th className="py-3 px-3 text-right">งบ/ชิ้น</th>
+                    <th className="py-3 px-3 text-right">งบรวม (บาท)</th>
+                    <th className="py-3 px-4">พื้นที่เป้าหมาย</th>
+                    <th className="py-3 px-3 text-center no-print">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredLogs.map((log) => {
-                    const badgeColor =
-                      log.categoryCode === 'K01' ? 'bg-rose-100 text-rose-800 border-rose-200' :
-                      log.categoryCode === 'K02' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                      log.categoryCode === 'K03' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                      'bg-purple-100 text-purple-800 border-purple-200';
-
-                    const categoryLabel =
-                      log.categoryCode === 'K01' ? 'ข้าวกล่อง' :
-                      log.categoryCode === 'K02' ? 'น้ำดื่ม' :
-                      log.categoryCode === 'K03' ? 'ถุงยังชีพ' : 'อื่นๆ';
-
+                  {filteredLogs.map((log, index) => {
                     const dateFormatted = new Date(log.serviceDate).toLocaleDateString('th-TH', {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',
                     });
 
+                    const bQty = log.boxQty ?? (log.categoryCode === 'K01' ? log.quantity || 0 : 0);
+                    const wQty = log.waterQty ?? (log.categoryCode === 'K02' ? log.quantity || 0 : 0);
+                    const rQty = log.reliefQty ?? (log.categoryCode === 'K03' ? log.quantity || 0 : 0);
+
+                    const bPerUnit = log.budgetPerUnit ? Number(log.budgetPerUnit) : null;
+                    const bTotal = log.totalBudget
+                      ? Number(log.totalBudget)
+                      : bPerUnit
+                      ? bPerUnit * (Number(log.quantity) || (bQty + wQty + rQty))
+                      : null;
+
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-4 font-medium whitespace-nowrap text-slate-800">
+                        <td className="py-3 px-3 text-center font-mono text-slate-500">
+                          {index + 1}
+                        </td>
+                        <td className="py-3 px-3 font-medium whitespace-nowrap text-slate-800">
                           <div className="flex items-center gap-1.5">
                             <Calendar className="h-3.5 w-3.5 text-slate-400" />
                             {dateFormatted}
                           </div>
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap text-slate-700">
+                        <td className="py-3 px-3 whitespace-nowrap text-slate-700">
                           <div className="flex items-center gap-1.5">
                             <Building2 className="h-3.5 w-3.5 text-slate-400" />
                             <span>{log.center?.name || '-'}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <Badge variant="outline" className={`${badgeColor} font-semibold text-xs`}>
-                            {categoryLabel}
-                          </Badge>
-                        </td>
                         <td className="py-3 px-4">
                           <p className="font-bold text-slate-900">{log.menuName}</p>
                           {log.notes && <p className="text-xs text-slate-500 mt-0.5">{log.notes}</p>}
                         </td>
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
-                          <span className="font-black text-rose-700 text-base">
-                            {log.quantity.toLocaleString()}
-                          </span>{' '}
-                          <span className="text-xs text-slate-500 font-medium">{log.unit}</span>
+                        <td className="py-3 px-3 text-right font-mono font-semibold text-rose-700">
+                          {bQty > 0 ? bQty.toLocaleString() : '-'}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-semibold text-blue-700">
+                          {wQty > 0 ? wQty.toLocaleString() : '-'}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-semibold text-amber-700">
+                          {rQty > 0 ? rQty.toLocaleString() : '-'}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-slate-600">
+                          {bPerUnit !== null ? bPerUnit.toFixed(2) : '-'}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700">
+                          {bTotal !== null ? bTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-700">
                           <div className="flex items-center gap-1.5">
                             <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0" />
                             <span>{log.targetLocation}</span>
                           </div>
-                          {log.recipientOrg && (
-                            <p className="text-[11px] text-slate-500 mt-0.5 pl-5">
-                              ผู้รับ: {log.recipientOrg}
-                            </p>
-                          )}
                         </td>
-                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <UserCheck className="h-3.5 w-3.5 text-slate-400" />
-                            <span>{log.coordinatorName || '-'}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-center whitespace-nowrap no-print">
+                        <td className="py-3 px-3 text-center whitespace-nowrap no-print">
                           <div className="flex items-center justify-center gap-1">
                             <Button
                               onClick={() => handleOpenEdit(log)}
@@ -554,10 +606,10 @@ export default function KitchenPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-rose-700">
               <Utensils className="h-5 w-5" />
-              <span>{editingId ? 'แก้ไขรายการสถิติครัวอาชีวะ' : 'บันทึกสถิติครัวอาชีวะ / แจกจ่ายเสบียง'}</span>
+              <span>{editingId ? 'แก้ไขรายการสถิติครัวอาชีวะ' : 'บันทึกสถิติครัวอาชีวะ (Fix it - จิตอาสา)'}</span>
             </DialogTitle>
             <DialogDescription>
-              บันทึกข้อมูลสถิติการจัดทำอาหาร น้ำดื่ม หรือเสบียงแจกจ่ายในภารกิจ FixIt Center
+              บันทึกข้อมูลสถิติการจัดทำอาหาร น้ำดื่ม และเสบียงยังชีพ ตามแบบรายงานทางการ
             </DialogDescription>
           </DialogHeader>
 
@@ -601,52 +653,75 @@ export default function KitchenPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>หมวดประเภทรายการ *</Label>
-              <Select value={formData.categoryCode} onValueChange={handleCategoryChange}>
-                <SelectTrigger><SelectValue placeholder="เลือกหมวดประเภท" /></SelectTrigger>
-                <SelectContent className="bg-white">
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>รายการอาหาร / เสบียงแจกจ่าย *</Label>
+              <Label>รายละเอียดการดำเนินงาน / รายการอาหาร *</Label>
               <Input
-                placeholder="เช่น ข้าวกะเพราหมูสับไข่ดาว, ข้าวไข่เจียวทรงเครื่อง, น้ำดื่มสิงห์ 600ml ฯลฯ"
+                placeholder="เช่น ข้าวผัดกะเพราหมูสับไข่ดาว, น้ำดื่ม 600ml, ข้าวไข่เจียวทรงเครื่อง ฯลฯ"
                 value={formData.menuName}
                 onChange={(e) => setFormData({ ...formData, menuName: e.target.value })}
                 required
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>จำนวนที่จัดทำ / แจกจ่าย *</Label>
+            {/* Quantities: Boxes, Water, Relief */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-rose-700">🍱 อาหารกล่อง (กล่อง)</Label>
                 <Input
                   type="number"
-                  min="1"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
-                  required
+                  min="0"
+                  value={formData.boxQty}
+                  onChange={(e) => handleQtyOrBudgetChange('boxQty', Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">💧 น้ำดื่ม (ขวด/แก้ว)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.waterQty}
+                  onChange={(e) => handleQtyOrBudgetChange('waterQty', Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-amber-700">📦 ถุงยังชีพ (ชุด)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.reliefQty}
+                  onChange={(e) => handleQtyOrBudgetChange('reliefQty', Number(e.target.value))}
+                />
+              </div>
+            </div>
+
+            {/* Budget per Unit & Total Budget */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>งบประมาณในการดำเนินงาน/ชิ้น (บาท)</Label>
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="เช่น 40.00"
+                  value={formData.budgetPerUnit}
+                  onChange={(e) => handleQtyOrBudgetChange('budgetPerUnit', Number(e.target.value))}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label>หน่วยนับ</Label>
+                <Label>งบประมาณทั้งสิ้น (บาท)</Label>
                 <Input
-                  placeholder="เช่น กล่อง, ชุด, ขวด, แพ็ค"
-                  value={formData.unit}
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  required
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="คำนวณอัตโนมัติ"
+                  value={formData.totalBudget}
+                  onChange={(e) => handleQtyOrBudgetChange('totalBudget', Number(e.target.value))}
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label>พื้นที่ / ชุมชน / ศูนย์พักพิงเป้าหมายที่แจกจ่าย *</Label>
+              <Label>พื้นที่ / จุดที่ให้บริการ *</Label>
               <Input
                 placeholder="เช่น ชุมชนบ้านดอนพัฒนา, ศูนย์พักพิงชั่วคราว อบต., หมู่ 4 ต.ในเมือง"
                 value={formData.targetLocation}
@@ -666,7 +741,7 @@ export default function KitchenPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>ผู้รับผิดชอบ / ครูผู้ควบคุมชุดครัว</Label>
+                <Label>ผู้รับผิดชอบ / ครูผู้ควบคุม</Label>
                 <Input
                   placeholder="ชื่อ-สกุล ครูหรือหัวหน้าชุดปฏิบัติการ"
                   value={formData.coordinatorName}
