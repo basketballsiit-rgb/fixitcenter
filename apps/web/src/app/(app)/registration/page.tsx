@@ -452,8 +452,44 @@ export default function RegistrationPage() {
     reader.readAsDataURL(file);
   };
 
+  // Start New Registration (Reset)
+  const handleStartNewRegistration = () => {
+    reset({
+      missionId: selectedMission || missions[0]?.id || '',
+      centerId: selectedCenter || centers[0]?.id || '',
+      tradeCode: 'ELECTRICAL',
+      firstName: '',
+      lastName: '',
+      nationalId: '',
+      phone: '',
+      address: '',
+      brand: '',
+      model: '',
+      serial: '',
+      problemDesc: '',
+      customDeviceDetails: '',
+      deviceCondition: '',
+      accessories: '',
+      additionalDetails: '',
+    });
+    setDeviceImage(null);
+    setIdCardImage(null);
+    setQueueNumber(null);
+    setSubmittedData(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast({ title: '✓ ล้างข้อมูลพร้อมลงทะเบียนงานใหม่เรียบร้อย' });
+  };
+
   // Submit Handler (C)
   const onSubmit = async (data: FormData) => {
+    if (queueNumber) {
+      toast({
+        title: `คิว ${queueNumber} ได้รับการออกเรียบร้อยแล้ว`,
+        description: 'หากต้องการลงทะเบียนงานใหม่ กรุณากดปุ่ม "ลงทะเบียนงานใหม่" หรือ "ล้างข้อมูล"',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSubmitting(true);
     try {
       let finalMissionId = data.missionId;
@@ -1303,43 +1339,65 @@ export default function RegistrationPage() {
               </CardContent>
             </Card>
 
-            {/* Submit Button */}
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  reset();
-                  setDeviceImage(null);
-                  setIdCardImage(null);
-                }}
-                disabled={submitting}
-              >
-                ล้างข้อมูล
-              </Button>
-              <Button
-                type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white min-w-[200px] gap-2 text-base font-semibold shadow-md"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    กำลังบันทึกและออกคิว...
-                  </>
+            {/* Submit Button & Prevention Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+              <div className="text-sm">
+                {queueNumber ? (
+                  <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                    <span>ออกหมายเลขคิวสำเร็จแล้ว:</span>
+                    <span className="font-mono text-base px-2.5 py-0.5 bg-emerald-100 rounded-md text-emerald-900 border border-emerald-300 font-bold">{queueNumber}</span>
+                  </div>
                 ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    บันทึกและออกหมายเลขคิว
-                  </>
+                  <span className="text-slate-500 text-xs sm:text-sm">⚠️ กรุณาตรวจสอบความถูกต้องของข้อมูลก่อนกดยืนยันการออกคิว</span>
                 )}
-              </Button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleStartNewRegistration}
+                  disabled={submitting}
+                  className="gap-1.5 font-medium"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {queueNumber ? '✨ ลงทะเบียนงานถัดไป' : 'ล้างข้อมูล'}
+                </Button>
+                <Button
+                  type="submit"
+                  className={cn(
+                    "min-w-[220px] gap-2 text-base font-semibold shadow-md transition-all",
+                    queueNumber
+                      ? "bg-slate-300 hover:bg-slate-300 text-slate-600 cursor-not-allowed border border-slate-300"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  )}
+                  disabled={submitting || !!queueNumber}
+                >
+                  {submitting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      กำลังบันทึกและออกคิว...
+                    </>
+                  ) : queueNumber ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      ออกคิวเรียบร้อยแล้ว ({queueNumber})
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      บันทึกและออกหมายเลขคิว
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
 
           {/* Success Queue Ticket Card */}
           {queueNumber && submittedData && (
-            <Card className="border-2 border-emerald-500 bg-emerald-50/40 mt-6 shadow-md">
+            <Card className="border-2 border-emerald-500 bg-emerald-50/40 mt-6 shadow-md animate-in fade-in zoom-in-95 duration-200">
               <CardContent className="p-6 text-center space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">
                   <CheckCircle2 className="w-4 h-4" />
@@ -1354,6 +1412,14 @@ export default function RegistrationPage() {
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-3 pt-2">
+                  <Button
+                    variant="default"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-semibold shadow-sm"
+                    onClick={handleStartNewRegistration}
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    ✨ + ลงทะเบียนเครื่องใหม่ / ลูกค้าใหม่
+                  </Button>
                   <Button
                     variant="default"
                     className="bg-amber-600 hover:bg-amber-700 text-white gap-2 font-semibold shadow-sm"
