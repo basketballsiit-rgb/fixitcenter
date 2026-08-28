@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Sparkles,
+  PackageCheck,
+  Edit3,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,7 @@ import { getSocket } from '@/lib/socket';
 import { formatPhone, formatCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 import { repairOrderApi } from '@/lib/api';
+import { HandoverModal } from '@/components/handover/handover-modal';
 import Link from 'next/link';
 
 export interface AppNotification {
@@ -41,6 +44,11 @@ export function NotificationBell() {
   const { user } = useAuthStore();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Handover Modal State
+  const [handoverOrderId, setHandoverOrderId] = useState<string | undefined>(undefined);
+  const [handoverQueueNumber, setHandoverQueueNumber] = useState<string | undefined>(undefined);
+  const [isHandoverOpen, setIsHandoverOpen] = useState(false);
 
   const fetchActiveAlerts = useCallback(async () => {
     try {
@@ -281,6 +289,25 @@ export function NotificationBell() {
                             )}
                           </div>
 
+                          {/* Direct Handover Button for COMPLETED notifications */}
+                          {isCompleted && (
+                            <div className="pt-1">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setHandoverOrderId(notif.orderId);
+                                  setHandoverQueueNumber(notif.queueNumber);
+                                  setIsHandoverOpen(true);
+                                  setIsOpen(false);
+                                }}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 h-auto gap-1.5 shadow-sm rounded-xl"
+                              >
+                                <PackageCheck className="w-4 h-4" />
+                                <span>✍️ เซ็นรับมอบส่งงานทันที</span>
+                              </Button>
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between pt-1 text-[10px]">
                             <Link
                               href="/registration"
@@ -311,6 +338,18 @@ export function NotificationBell() {
           </div>
         </>
       )}
+
+      {/* Direct Handover Signature Modal */}
+      <HandoverModal
+        orderId={handoverOrderId}
+        queueNumber={handoverQueueNumber}
+        isOpen={isHandoverOpen}
+        onClose={() => setIsHandoverOpen(false)}
+        onSuccess={() => {
+          setIsHandoverOpen(false);
+          fetchActiveAlerts();
+        }}
+      />
     </div>
   );
 }
