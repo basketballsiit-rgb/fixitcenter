@@ -455,5 +455,45 @@ export const kitchenApi = {
   delete: (id: string) => api.delete(`/kitchen/${id}`),
 };
 
+export interface VehicleLog {
+  id: string;
+  missionId: string;
+  centerId: string;
+  serviceDate: string;
+  serviceDetails: string;
+  vehicleType: string;
+  serviceCount: number;
+  completedCount: number;
+  budgetPerUnit?: number | null;
+  totalBudget?: number | null;
+  targetLocation?: string | null;
+  recipientOrg?: string | null;
+  coordinatorName?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  center?: { id: string; name: string; code: string };
+  mission?: { id: string; name: string; fiscalYear: number };
+}
+
+export interface VehicleSummary {
+  totalEntries: number;
+  totalServices: number;
+  totalCompleted: number;
+  totalBudget: number;
+}
+
+export const vehicleApi = {
+  getAll: (centerId?: string, missionId?: string) =>
+    api.get<VehicleLog[]>('/vehicle-logs', { params: { centerId, missionId } }),
+  getSummary: (centerId?: string, missionId?: string) =>
+    api.get<VehicleSummary>('/vehicle-logs/summary', { params: { centerId, missionId } }),
+  getById: (id: string) => api.get<VehicleLog>(`/vehicle-logs/${id}`),
+  create: (data: Partial<VehicleLog>) => api.post<VehicleLog>('/vehicle-logs', data),
+  update: (id: string, data: Partial<VehicleLog>) => api.patch<VehicleLog>(`/vehicle-logs/${id}`, data),
+  delete: (id: string) => api.delete(`/vehicle-logs/${id}`),
+};
+
+
 export default api;
 

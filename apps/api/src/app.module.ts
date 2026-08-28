@@ -14,6 +14,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { EncryptionModule } from './common/encryption/encryption.module';
 import { CategoriesModule } from './categories/categories.module';
 import { KitchenModule } from './kitchen/kitchen.module';
+import { VehicleLogsModule } from './vehicle-logs/vehicle-logs.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { KitchenModule } from './kitchen/kitchen.module';
     NotificationsModule,
     CategoriesModule,
     KitchenModule,
+    VehicleLogsModule,
   ],
 })
 export class AppModule {}

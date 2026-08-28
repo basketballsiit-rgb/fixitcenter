@@ -95,6 +95,7 @@ model Mission {
   repairOrders RepairOrder[]
   queueCounters TradeQueueCounter[]
   kitchenLogs  KitchenLog[]
+  vehicleLogs  VehicleLog[]
 
   @@index([fiscalYear])
   @@index([isActive])
@@ -123,6 +124,7 @@ model ServiceCenter {
   repairOrders  RepairOrder[]
   queueCounters TradeQueueCounter[]
   kitchenLogs   KitchenLog[]
+  vehicleLogs   VehicleLog[]
 
   @@index([missionId])
   @@map("service_centers")
@@ -447,4 +449,35 @@ model KitchenLog {
   @@index([missionId])
   @@index([serviceDate])
   @@map("kitchen_logs")
+}
+
+// ─────────────────────────────────────────
+// Vehicle Logs (ยานพาหนะ — ล้างทำความสะอาด ตรวจเช็ค ซ่อม-เปลี่ยนอะไหล่)
+// ─────────────────────────────────────────
+
+model VehicleLog {
+  id              String         @id @default(cuid())
+  missionId       String         @map("mission_id")
+  centerId        String         @map("center_id")
+  serviceDate     DateTime       @default(now()) @map("service_date")
+  serviceDetails  String         @map("service_details") @db.Text
+  vehicleType     String         @default("รถจักรยานยนต์") @map("vehicle_type")
+  serviceCount    Int            @default(1) @map("service_count")
+  completedCount  Int            @default(1) @map("completed_count")
+  budgetPerUnit   Decimal?       @map("budget_per_unit") @db.Decimal(10, 2)
+  totalBudget     Decimal?       @map("total_budget") @db.Decimal(12, 2)
+  targetLocation  String?        @map("target_location")
+  recipientOrg    String?        @map("recipient_org")
+  coordinatorName String?        @map("coordinator_name")
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  mission         Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  center          ServiceCenter  @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  @@index([centerId])
+  @@index([missionId])
+  @@index([serviceDate])
+  @@map("vehicle_logs")
 }

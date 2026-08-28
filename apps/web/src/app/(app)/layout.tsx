@@ -9,7 +9,7 @@ import { Toaster } from '@/components/ui/toaster';
 import {
   LayoutDashboard, ClipboardList, Wrench, ShieldCheck,
   Monitor, LogOut, Menu, X, ChevronRight, Wrench as WrenchIcon,
-  Settings, Globe, Utensils
+  Settings, Globe, Utensils, FileSpreadsheet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -17,6 +17,7 @@ import { NotificationBell } from '@/components/notifications/notification-bell';
 const NAV_ITEMS = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'แดชบอร์ด', labelEn: 'Dashboard' },
   { href: '/registration', icon: ClipboardList, label: 'ลงทะเบียนงานซ่อม', labelEn: 'Registration' },
+  { href: '/reports', icon: FileSpreadsheet, label: 'ระบบรายงานและสถิติ', labelEn: 'Official Reports' },
   { href: '/kitchen', icon: Utensils, label: 'ครัวอาชีวะ (สถิติ)', labelEn: 'Relief Kitchen' },
   { href: '/workspace', icon: Wrench, label: 'พื้นที่ทำงานช่าง', labelEn: 'Workspace' },
   { href: '/queue-board', icon: Monitor, label: 'กระดานคิว TV', labelEn: 'Queue Board' },

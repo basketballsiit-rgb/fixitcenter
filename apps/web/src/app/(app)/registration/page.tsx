@@ -553,6 +553,28 @@ export default function RegistrationPage() {
       setSubmittedData(data);
 
       const centerObj = centers.find((c) => c.id === data.centerId);
+
+      // Auto-sync into Vehicle Report Logs if trade is AUTOMOTIVE
+      if (trade === 'AUTOMOTIVE') {
+        try {
+          const vehicleCatName = selectedCategory?.name || data.customDeviceDetails || 'รถจักรยานยนต์';
+          await vehicleApi.create({
+            missionId: data.missionId,
+            centerId: data.centerId,
+            serviceDate: new Date().toISOString().split('T')[0],
+            vehicleType: vehicleCatName,
+            serviceDetails: fullProblemDesc || 'ล้างทำความสะอาด ตรวจเช็ค และซ่อมยานพาหนะ',
+            serviceCount: 1,
+            completedCount: 1,
+            budgetPerUnit: 150,
+            totalBudget: 150,
+            targetLocation: centerObj?.address || data.address || '',
+            notes: `คิว: ${newQueue} | ${deviceBrand} ${deviceModel}`,
+          });
+        } catch (vErr) {
+          console.warn('Vehicle log sync:', vErr);
+        }
+      }
       
       // Setup A4 Print State
       setPrintOrder({
