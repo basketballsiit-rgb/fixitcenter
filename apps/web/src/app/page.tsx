@@ -6,7 +6,7 @@ import {
   Wrench, ClipboardList, ShieldCheck, Monitor, Settings,
   ArrowRight, CheckCircle2, TrendingUp, Users, MapPin,
   Clock, LogIn, ExternalLink, Activity, Building2, Phone,
-  ChevronRight, Filter, Utensils, Zap, Cpu, Car
+  ChevronRight, Filter, Utensils, Zap, Cpu, Car, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
