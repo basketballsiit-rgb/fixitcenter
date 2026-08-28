@@ -264,6 +264,7 @@ export class RepairOrdersService {
       where: {
         OR: [
           { queueNumber:    { contains: q, mode: 'insensitive' } },
+          { qrToken:        { contains: q, mode: 'insensitive' } },
           { deviceCategory: { contains: q, mode: 'insensitive' } },
           { deviceBrand:    { contains: q, mode: 'insensitive' } },
           { problemDesc:    { contains: q, mode: 'insensitive' } },
@@ -323,8 +324,16 @@ export class RepairOrdersService {
   // ── Find by QR Token (public — for QR scanner) ────────────────────────────
 
   async findByQrToken(token: string) {
-    const order = await this.prisma.repairOrder.findUnique({
-      where: { qrToken: token },
+    const cleanToken = token?.trim();
+    if (!cleanToken) throw new NotFoundException('Invalid QR code');
+    const order = await this.prisma.repairOrder.findFirst({
+      where: {
+        OR: [
+          { qrToken: { equals: cleanToken, mode: 'insensitive' } },
+          { queueNumber: { equals: cleanToken, mode: 'insensitive' } },
+          { id: cleanToken },
+        ],
+      },
       include: this.defaultInclude(),
     });
     if (!order) throw new NotFoundException('Invalid QR code or order not found');

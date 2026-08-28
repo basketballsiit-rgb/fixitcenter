@@ -154,40 +154,53 @@ export default function ReportsPage() {
           ? selectedCenterId
           : undefined;
 
-      const [vRes, sRes, kRes, ksRes] = await Promise.all([
+      const [vRes, sRes, kRes, ksRes] = await Promise.allSettled([
         vehicleApi.getAll(activeCenterId),
         vehicleApi.getSummary(activeCenterId),
         kitchenApi.getAll(activeCenterId),
         kitchenApi.getSummary(activeCenterId),
       ]);
 
-      setVehicleLogs(Array.isArray(vRes.data) ? vRes.data : []);
-      setVehicleSummary(
-        sRes.data || {
+      if (vRes.status === 'fulfilled' && Array.isArray(vRes.value.data)) {
+        setVehicleLogs(vRes.value.data);
+      } else {
+        setVehicleLogs([]);
+      }
+
+      if (sRes.status === 'fulfilled' && sRes.value.data) {
+        setVehicleSummary(sRes.value.data);
+      } else {
+        setVehicleSummary({
           totalEntries: 0,
           totalServices: 0,
           totalCompleted: 0,
           totalBudget: 0,
-        }
-      );
-      setKitchenLogs(Array.isArray(kRes.data) ? kRes.data : []);
-      setKitchenSummary(
-        ksRes.data || {
+        });
+      }
+
+      if (kRes.status === 'fulfilled' && Array.isArray(kRes.value.data)) {
+        setKitchenLogs(kRes.value.data);
+      } else {
+        setKitchenLogs([]);
+      }
+
+      if (ksRes.status === 'fulfilled' && ksRes.value.data) {
+        setKitchenSummary(ksRes.value.data);
+      } else {
+        setKitchenSummary({
           totalEntries: 0,
           totalQuantity: 0,
           totalBoxes: 0,
           totalWater: 0,
           totalRelief: 0,
-        }
-      );
-    } catch (err: any) {
-      if (err?.response?.status !== 401) {
-        toast({ title: 'เกิดข้อผิดพลาดในการโหลดข้อมูลรายงาน', variant: 'destructive' });
+        });
       }
+    } catch {
+      // Fallback cleanly
     } finally {
       setVehicleLoading(false);
     }
-  }, [isSuperAdmin, userCenterId, selectedCenterId, toast]);
+  }, [isSuperAdmin, userCenterId, selectedCenterId]);
 
   useEffect(() => {
     fetchVehicleData();

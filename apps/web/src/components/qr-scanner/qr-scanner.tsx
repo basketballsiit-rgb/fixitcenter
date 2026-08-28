@@ -46,8 +46,8 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
 
     // Draw scanning overlay
     ctx.strokeStyle = '#22c55e';
-    ctx.lineWidth = 3;
-    const size = Math.min(canvas.width, canvas.height) * 0.6;
+    ctx.lineWidth = 4;
+    const size = Math.min(canvas.width, canvas.height) * 0.7;
     const x = (canvas.width - size) / 2;
     const y = (canvas.height - size) / 2;
     ctx.strokeRect(x, y, size, size);
@@ -68,7 +68,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
   const startScanning = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -91,7 +91,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative rounded-lg overflow-hidden bg-black aspect-video max-w-md mx-auto w-full">
+      <div className="relative rounded-xl overflow-hidden bg-black w-full max-w-lg mx-auto aspect-[4/3] sm:aspect-video min-h-[280px] sm:min-h-[340px] shadow-md border border-slate-700">
         <video
           ref={videoRef}
           className="w-full h-full object-cover"
@@ -103,27 +103,28 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
           className="absolute inset-0 w-full h-full"
         />
         {!isScanning && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <Camera className="h-16 w-16 text-white/50" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white gap-2">
+            <Camera className="h-16 w-16 text-white/60" />
+            <span className="text-xs text-slate-300">แตะปุ่มด้านล่างเพื่อเปิดกล้อง</span>
           </div>
         )}
         {isScanning && (
-          <div className="absolute bottom-2 left-0 right-0 flex justify-center">
-            <div className="bg-black/60 text-white text-xs px-3 py-1 rounded-full animate-pulse">
-              กำลังสแกน...
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center">
+            <div className="bg-black/75 text-white text-xs px-3.5 py-1.5 rounded-full shadow border border-white/20 animate-pulse">
+              🔍 กำลังสแกน... จัด QR Code ให้อยู่ในกรอบ
             </div>
           </div>
         )}
       </div>
-      <p className="text-sm text-center text-muted-foreground">{statusMsg}</p>
+      <p className="text-sm text-center text-muted-foreground font-medium">{statusMsg}</p>
       <div className="flex gap-2 justify-center">
         {!isScanning ? (
-          <Button onClick={startScanning} className="gap-2">
+          <Button onClick={startScanning} className="gap-2 bg-brand-orange hover:bg-orange-600 text-white font-bold py-2.5 px-5 shadow-sm">
             <Camera className="h-4 w-4" />
             เริ่มสแกน QR Code
           </Button>
         ) : (
-          <Button variant="destructive" onClick={stopScanning} className="gap-2">
+          <Button variant="destructive" onClick={stopScanning} className="gap-2 font-bold py-2.5 px-5">
             <Square className="h-4 w-4" />
             หยุดสแกน
           </Button>

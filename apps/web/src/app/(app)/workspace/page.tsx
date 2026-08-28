@@ -93,8 +93,29 @@ export default function WorkspacePage() {
     if (!queryInput || !queryInput.trim()) return;
     setLoading(true);
     const cleanQuery = queryInput.trim();
+
+    // 1. Try getByQrToken (for scanned UUID or token)
     try {
-      // 1. Try getByQueueNumber
+      const qrRes = await repairOrderApi.getByQrToken(cleanQuery);
+      const data = qrRes.data;
+      if (data && data.id) {
+        setOrder(data);
+        const initialParts = (data.items || data.parts || []).map((p: any) => ({
+          description: p.description || p.name || '',
+          quantity: Number(p.quantity) || 1,
+          cost: Number(p.unitCost ?? p.cost ?? 0),
+        }));
+        setParts(initialParts.length > 0 ? initialParts : []);
+        setNotes(data.additionalDetails || data.notes || '');
+        toast({ title: `✓ พบข้อมูลคิว ${data.queueNumber}` });
+        return;
+      }
+    } catch {
+      // Continue to next lookup
+    }
+
+    try {
+      // 2. Try getByQueueNumber
       const res = await repairOrderApi.getByQueueNumber(cleanQuery.toUpperCase());
       const data = res.data;
       if (data) {
@@ -110,7 +131,7 @@ export default function WorkspacePage() {
         return;
       }
     } catch {
-      // 2. Fallback: search via track API
+      // 3. Fallback: search via track API
       try {
         const trackRes = await repairOrderApi.track(cleanQuery);
         const list = Array.isArray(trackRes.data) ? trackRes.data : [];
@@ -130,7 +151,7 @@ export default function WorkspacePage() {
       } catch (err2) {
         console.error('Track failed:', err2);
       }
-      toast({ title: 'ไม่พบหมายเลขคิว', description: cleanQuery, variant: 'destructive' });
+      toast({ title: 'ไม่พบข้อมูลงานซ่อม', description: `รหัส: ${cleanQuery}`, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
