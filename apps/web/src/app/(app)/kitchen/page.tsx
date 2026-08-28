@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import { KitchenPrintLayout } from './kitchen-print-layout';
 import {
   Utensils,
   Plus,
@@ -283,10 +284,10 @@ export default function KitchenPage() {
           <Button
             onClick={() => window.print()}
             variant="outline"
-            className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-50 no-print"
+            className="gap-2 border-rose-300 text-rose-700 hover:bg-rose-50 font-semibold no-print shadow-sm"
           >
             <Printer className="h-4 w-4" />
-            พิมพ์รายงานสรุป
+            🖨️ พิมพ์รายงานสรุป A4 (ทางการ)
           </Button>
           <Button
             onClick={handleOpenCreate}
@@ -704,6 +705,16 @@ export default function KitchenPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Official A4 Print Layout Component (Visible only when printing) ── */}
+      <KitchenPrintLayout
+        logs={filteredLogs}
+        summary={summary}
+        selectedCenterId={selectedCenterId}
+        centers={centers}
+        missions={missions}
+        collegeName="วิทยาลัยสารพัดช่างน่าน"
+      />
     </div>
   );
 }
