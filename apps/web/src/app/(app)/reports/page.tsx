@@ -200,6 +200,12 @@ export default function ReportsPage() {
           ? selectedCenterId
           : undefined;
 
+      // 1. Auto-sync registered repair orders into daily summary logs
+      await Promise.allSettled([
+        applianceApi.syncFromOrders(activeCenterId),
+        vehicleApi.syncFromOrders(activeCenterId),
+      ]);
+
       const [aRes, asRes, vRes, vsRes, kRes, ksRes] = await Promise.allSettled([
         applianceApi.getAll(activeCenterId),
         applianceApi.getSummary(activeCenterId),
@@ -831,6 +837,24 @@ export default function ReportsPage() {
                       })
                     )}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-[#dcecd0] border-t-2 border-slate-400 font-bold text-slate-900">
+                      <td colSpan={4} className="py-3 px-4 border text-center font-black text-xs">
+                        รวมทั้งสิ้น ({filteredApplianceLogs.length} รายการ):
+                      </td>
+                      <td className="py-3 px-2 border text-center font-mono font-black text-amber-800 text-sm">
+                        {filteredApplianceLogs.reduce((acc, l) => acc + Number(l.serviceCount || 0), 0).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-2 border text-center font-mono font-black text-emerald-800 text-sm">
+                        {filteredApplianceLogs.reduce((acc, l) => acc + Number(l.completedCount || 0), 0).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3 border text-center font-mono text-slate-400">-</td>
+                      <td className="py-3 px-3 border text-right font-mono font-black text-emerald-900 text-sm">
+                        {filteredApplianceLogs.reduce((acc, l) => acc + Number(l.totalBudget || 0), 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-2 border no-print"></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </CardContent>
@@ -1086,6 +1110,24 @@ export default function ReportsPage() {
                       })
                     )}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-[#dcecd0] border-t-2 border-slate-400 font-bold text-slate-900">
+                      <td colSpan={4} className="py-3 px-4 border text-center font-black text-xs">
+                        รวมทั้งสิ้น ({filteredVehicleLogs.length} รายการ):
+                      </td>
+                      <td className="py-3 px-2 border text-center font-mono font-black text-blue-800 text-sm">
+                        {filteredVehicleLogs.reduce((acc, l) => acc + Number(l.serviceCount || 0), 0).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-2 border text-center font-mono font-black text-emerald-800 text-sm">
+                        {filteredVehicleLogs.reduce((acc, l) => acc + Number(l.completedCount || 0), 0).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3 border text-center font-mono text-slate-400">-</td>
+                      <td className="py-3 px-3 border text-right font-mono font-black text-emerald-900 text-sm">
+                        {filteredVehicleLogs.reduce((acc, l) => acc + Number(l.totalBudget || 0), 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-2 border no-print"></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </CardContent>
@@ -1167,6 +1209,77 @@ export default function ReportsPage() {
             TAB 4: ภาพรวมโครงการ (Overall Summary)
         ══════════════════════════════════════════════════════ */}
         <TabsContent value="all" className="space-y-6">
+          {/* Grand Highlight Budget & Service Card */}
+          <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 rounded-2xl p-6 text-white shadow-xl border border-slate-700">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
+              <div>
+                <Badge className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-black text-xs px-2.5 py-0.5 mb-2">
+                  สรุปประมวลผลรวมทุกกิจกรรมโครงการ
+                </Badge>
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                  แบบสรุปผลการดำเนินงานและงบประมาณรวมทั้ง 3 กิจกรรม
+                </h2>
+                <p className="text-xs text-blue-200 mt-1">
+                  วิทยาลัยสารพัดช่างน่าน (โครงการบูรณาการ Fix It Center จิตอาสา ช่วยเหลือผู้ประสบอุทกภัย)
+                </p>
+              </div>
+
+              <Button
+                onClick={() => fetchAllReportData()}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 h-10 px-4 shadow-md shrink-0"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span>🔄 ประมวลผลรวมยอดรายวันทุกกิจกรรม</span>
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                <span className="text-xs text-blue-200 font-medium">งบประมาณรวมทั้ง 3 กิจกรรม</span>
+                <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono mt-1">
+                  ฿{(
+                    applianceSummary.totalBudget +
+                    vehicleSummary.totalBudget +
+                    (kitchenSummary.totalBoxes * 50 + kitchenSummary.totalWater * 7 + kitchenSummary.totalRelief * 500)
+                  ).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <span className="text-[11px] text-blue-300 mt-0.5 block">คำนวณจากยอดอะไหล่/วัตถุดิบทุกกิจกรรม</span>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                <span className="text-xs text-blue-200 font-medium">ยอดรับบริการและแจกจ่ายรวม</span>
+                <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono mt-1">
+                  {(
+                    applianceSummary.totalServices +
+                    vehicleSummary.totalServices +
+                    kitchenSummary.totalQuantity
+                  ).toLocaleString()}{' '}
+                  <span className="text-sm font-normal text-white">รายการ</span>
+                </div>
+                <span className="text-[11px] text-blue-300 mt-0.5 block">รวมเครื่องใช้ไฟฟ้า + ยานพาหนะ + โรงครัว</span>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                <span className="text-xs text-blue-200 font-medium">งานซ่อมสำเร็จรวม</span>
+                <div className="text-2xl sm:text-3xl font-black text-cyan-300 font-mono mt-1">
+                  {(applianceSummary.totalCompleted + vehicleSummary.totalCompleted).toLocaleString()}{' '}
+                  <span className="text-sm font-normal text-white">ชิ้น/คัน</span>
+                </div>
+                <span className="text-[11px] text-blue-300 mt-0.5 block">
+                  คิดเป็นอัตราสำเร็จ{' '}
+                  {applianceSummary.totalServices + vehicleSummary.totalServices > 0
+                    ? Math.round(
+                        ((applianceSummary.totalCompleted + vehicleSummary.totalCompleted) /
+                          (applianceSummary.totalServices + vehicleSummary.totalServices)) *
+                          100
+                      )
+                    : 0}
+                  % ของงานซ่อมทั้งหมด
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-sm">
               <CardHeader className="pb-2">

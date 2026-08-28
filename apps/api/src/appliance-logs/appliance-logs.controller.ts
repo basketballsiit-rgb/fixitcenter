@@ -28,6 +28,15 @@ export class ApplianceLogsController {
     return this.applianceLogsService.getSummary(effectiveCenterId, missionId);
   }
 
+  @Post('sync')
+  async syncFromOrders(@Query('centerId') centerId?: string, @Query('missionId') missionId?: string, @Req() req?: any) {
+    const user = req?.user;
+    const isCenterAdmin = user?.role === 'CENTER_ADMIN' || user?.role?.name === 'CENTER_ADMIN';
+    const effectiveCenterId = isCenterAdmin && user?.centerId ? user.centerId : centerId;
+
+    return this.applianceLogsService.syncFromOrders(effectiveCenterId, missionId);
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard)
   async findAll(@Query('centerId') centerId?: string, @Query('missionId') missionId?: string, @Req() req?: any) {

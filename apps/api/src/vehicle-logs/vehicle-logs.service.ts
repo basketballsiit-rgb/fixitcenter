@@ -129,4 +129,117 @@ export class VehicleLogsService {
     await this.prisma.vehicleLog.delete({ where: { id } });
     return { success: true };
   }
+
+  async syncFromOrders(centerId?: string, missionId?: string) {
+    const where: any = { tradeCode: 'AUTOMOTIVE' };
+    if (centerId) where.centerId = centerId;
+    if (missionId) where.missionId = missionId;
+
+    const orders = await this.prisma.repairOrder.findMany({
+      where,
+      include: { center: true, mission: true },
+      orderBy: { registeredAt: 'asc' },
+    });
+
+    if (orders.length === 0) return { count: 0, message: 'ไม่มีข้อมูลงานซ่อมในระบบ' };
+
+    // Group by Date (YYYY-MM-DD), CenterId, and VehicleType
+    const groups: Record<string, {
+      missionId: string;
+      centerId: string;
+      centerName: string;
+      targetLocation: string;
+      dateStr: string;
+      vehicleType: string;
+      serviceCount: number;
+      completedCount: number;
+      totalBudget: number;
+      problems: string[];
+    }> = {};
+
+    for (const order of orders) {
+      const d = new Date(order.registeredAt || order.createdAt);
+      const dateStr = d.toISOString().split('T')[0];
+      const vType = order.deviceCategory || 'รถจักรยานยนต์';
+      const key = `${dateStr}_${order.centerId}_${vType}`;
+
+      if (!groups[key]) {
+        groups[key] = {
+          missionId: order.missionId,
+          centerId: order.centerId,
+          centerName: order.center?.name || '',
+          targetLocation: order.center?.address || '',
+          dateStr,
+          vehicleType: vType,
+          serviceCount: 0,
+          completedCount: 0,
+          totalBudget: 0,
+          problems: [],
+        };
+      }
+
+      groups[key].serviceCount += 1;
+      if (['COMPLETED', 'CLOSED'].includes(order.status)) {
+        groups[key].completedCount += 1;
+      }
+      const pCost = Number(order.partsCost || 0);
+      groups[key].totalBudget += pCost > 0 ? pCost : 150; // default 150 THB if zero
+
+      if (order.problemDesc && groups[key].problems.length < 3) {
+        groups[key].problems.push(order.problemDesc);
+      }
+    }
+
+    let createdCount = 0;
+    for (const key of Object.keys(groups)) {
+      const g = groups[key];
+      const serviceDate = new Date(g.dateStr);
+      const budgetPerUnit = g.serviceCount > 0 ? Math.round((g.totalBudget / g.serviceCount) * 100) / 100 : 150;
+      const serviceDetails = g.problems.length > 0
+        ? `ล้างทำความสะอาด ตรวจเช็ค ซ่อม-เปลี่ยนอะไหล่ (${g.problems.join(', ')})`
+        : 'ล้างทำความสะอาด – ตรวจเช็ค – ซ่อม-เปลี่ยนอะไหล่ ยานพาหนะ';
+
+      const existing = await this.prisma.vehicleLog.findFirst({
+        where: {
+          centerId: g.centerId,
+          vehicleType: g.vehicleType,
+          serviceDate: {
+            gte: new Date(`${g.dateStr}T00:00:00.000Z`),
+            lte: new Date(`${g.dateStr}T23:59:59.999Z`),
+          },
+        },
+      });
+
+      if (existing) {
+        await this.prisma.vehicleLog.update({
+          where: { id: existing.id },
+          data: {
+            serviceCount: g.serviceCount,
+            completedCount: g.completedCount,
+            budgetPerUnit,
+            totalBudget: g.totalBudget,
+            serviceDetails,
+          },
+        });
+      } else {
+        await this.prisma.vehicleLog.create({
+          data: {
+            missionId: g.missionId,
+            centerId: g.centerId,
+            serviceDate,
+            vehicleType: g.vehicleType,
+            serviceDetails,
+            serviceCount: g.serviceCount,
+            completedCount: g.completedCount,
+            budgetPerUnit,
+            totalBudget: g.totalBudget,
+            targetLocation: g.targetLocation || null,
+          },
+        });
+        createdCount++;
+      }
+    }
+
+    return { count: Object.keys(groups).length, createdCount };
+  }
 }

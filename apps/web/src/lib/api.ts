@@ -498,6 +498,8 @@ export const vehicleApi = {
   create: (data: Partial<VehicleLog>) => api.post<VehicleLog>('/vehicle-logs', data),
   update: (id: string, data: Partial<VehicleLog>) => api.patch<VehicleLog>(`/vehicle-logs/${id}`, data),
   delete: (id: string) => api.delete(`/vehicle-logs/${id}`),
+  syncFromOrders: (centerId?: string, missionId?: string) =>
+    api.post<{ count: number; createdCount: number }>('/vehicle-logs/sync', null, { params: { centerId, missionId } }),
 };
 
 export interface ApplianceLog {
@@ -537,6 +539,8 @@ export const applianceApi = {
   create: (data: Partial<ApplianceLog>) => api.post<ApplianceLog>('/appliance-logs', data),
   update: (id: string, data: Partial<ApplianceLog>) => api.patch<ApplianceLog>(`/appliance-logs/${id}`, data),
   delete: (id: string) => api.delete(`/appliance-logs/${id}`),
+  syncFromOrders: (centerId?: string, missionId?: string) =>
+    api.post<{ count: number; createdCount: number }>('/appliance-logs/sync', null, { params: { centerId, missionId } }),
 };
 
 
