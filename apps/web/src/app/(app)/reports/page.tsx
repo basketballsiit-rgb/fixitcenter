@@ -54,6 +54,8 @@ import {
 import { AppliancePrintLayout } from './appliance-print-layout';
 import { VehiclePrintLayout } from './vehicle-print-layout';
 import { KitchenPrintLayout } from '../kitchen/kitchen-print-layout';
+import { StandardRatesModal } from '@/components/settings/standard-rates-modal';
+import { getStandardRates, getVehicleRate, getApplianceRate } from '@/lib/settings';
 
 const APPLIANCE_TYPE_OPTIONS = [
   'พัดลม',
@@ -102,6 +104,7 @@ export default function ReportsPage() {
     totalBudget: 0,
   });
   const [applianceLoading, setApplianceLoading] = useState(true);
+  const [isStandardRatesModalOpen, setIsStandardRatesModalOpen] = useState(false);
 
   // ── Appliance Modal State ──
   const [isApplianceModalOpen, setIsApplianceModalOpen] = useState(false);
@@ -117,6 +120,7 @@ export default function ReportsPage() {
     completedCount: 1,
     budgetPerUnit: 100,
     totalBudget: 100,
+    useStandardRate: true,
     targetLocation: '',
     recipientOrg: '',
     coordinatorName: '',
@@ -145,8 +149,9 @@ export default function ReportsPage() {
     serviceDetails: 'ล้างทำความสะอาด, ตรวจเช็คสภาพ, เปลี่ยนถ่ายน้ำมันเครื่อง',
     serviceCount: 1,
     completedCount: 1,
-    budgetPerUnit: 150,
-    totalBudget: 150,
+    budgetPerUnit: 300,
+    totalBudget: 300,
+    useStandardRate: true,
     targetLocation: '',
     recipientOrg: '',
     coordinatorName: '',
@@ -316,6 +321,7 @@ export default function ReportsPage() {
     const defaultCenter = !isSuperAdmin && userCenterId ? userCenterId : (centers[0]?.id || '');
     const defaultMission = missions.find((m) => m.isActive)?.id || missions[0]?.id || '';
 
+    const stdRate = getApplianceRate('พัดลม');
     setApplianceFormData({
       missionId: defaultMission,
       centerId: defaultCenter,
@@ -324,8 +330,9 @@ export default function ReportsPage() {
       serviceDetails: 'ล้างทำความสะอาด, ตรวจเช็คสภาพ, ซ่อม-เปลี่ยนอะไหล่',
       serviceCount: 1,
       completedCount: 1,
-      budgetPerUnit: 100,
-      totalBudget: 100,
+      budgetPerUnit: stdRate,
+      totalBudget: stdRate,
+      useStandardRate: true,
       targetLocation: '',
       recipientOrg: '',
       coordinatorName: '',
@@ -338,7 +345,7 @@ export default function ReportsPage() {
     setEditingApplianceId(item.id);
     const sCount = Number(item.serviceCount) || 1;
     const cCount = Number(item.completedCount) || sCount;
-    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : 100;
+    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : getApplianceRate(item.applianceType);
     const bTotal = item.totalBudget ? Number(item.totalBudget) : bPerUnit * sCount;
 
     setApplianceFormData({
@@ -351,6 +358,7 @@ export default function ReportsPage() {
       completedCount: cCount,
       budgetPerUnit: bPerUnit,
       totalBudget: bTotal,
+      useStandardRate: false,
       targetLocation: item.targetLocation || '',
       recipientOrg: item.recipientOrg || '',
       coordinatorName: item.coordinatorName || '',
@@ -425,6 +433,7 @@ export default function ReportsPage() {
     setEditingVehicleId(null);
     const defaultCenter = !isSuperAdmin && userCenterId ? userCenterId : (centers[0]?.id || '');
     const defaultMission = missions.find((m) => m.isActive)?.id || missions[0]?.id || '';
+    const stdRate = getVehicleRate('รถจักรยานยนต์');
 
     setVehicleFormData({
       missionId: defaultMission,
@@ -434,8 +443,9 @@ export default function ReportsPage() {
       serviceDetails: 'ล้างทำความสะอาด, ตรวจเช็คสภาพ, เปลี่ยนถ่ายน้ำมันเครื่อง',
       serviceCount: 1,
       completedCount: 1,
-      budgetPerUnit: 150,
-      totalBudget: 150,
+      budgetPerUnit: stdRate,
+      totalBudget: stdRate,
+      useStandardRate: true,
       targetLocation: '',
       recipientOrg: '',
       coordinatorName: '',
@@ -448,7 +458,7 @@ export default function ReportsPage() {
     setEditingVehicleId(item.id);
     const sCount = Number(item.serviceCount) || 1;
     const cCount = Number(item.completedCount) || sCount;
-    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : 150;
+    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : getVehicleRate(item.vehicleType);
     const bTotal = item.totalBudget ? Number(item.totalBudget) : bPerUnit * sCount;
 
     setVehicleFormData({
@@ -461,6 +471,7 @@ export default function ReportsPage() {
       completedCount: cCount,
       budgetPerUnit: bPerUnit,
       totalBudget: bTotal,
+      useStandardRate: false,
       targetLocation: item.targetLocation || '',
       recipientOrg: item.recipientOrg || '',
       coordinatorName: item.coordinatorName || '',
@@ -552,8 +563,17 @@ export default function ReportsPage() {
 
         <div className="flex items-center gap-3">
           <Button
+            onClick={() => setIsStandardRatesModalOpen(true)}
+            variant="outline"
+            className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 font-bold gap-1.5 shadow-xs text-xs h-9"
+          >
+            <Wrench className="h-4 w-4 text-brand-orange" />
+            <span>⚙️ ตั้งค่าอัตรามาตรฐาน</span>
+          </Button>
+
+          <Button
             onClick={handlePrint}
-            className="bg-brand-navy hover:bg-slate-800 text-white font-bold gap-2 shadow-sm"
+            className="bg-brand-navy hover:bg-slate-800 text-white font-bold gap-2 shadow-sm text-xs h-9"
           >
             <Printer className="h-4 w-4" />
             <span>🖨️ พิมพ์รายงาน A4 (แนวนอน)</span>
@@ -1468,6 +1488,38 @@ export default function ReportsPage() {
               </div>
             </div>
 
+            {/* Standard Rate Toggle Checkbox */}
+            <div className="flex items-center justify-between p-3 bg-amber-50/70 rounded-xl border border-amber-200">
+              <label className="text-xs font-bold text-amber-950 flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applianceFormData.useStandardRate}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    const sRate = checked ? getApplianceRate(applianceFormData.applianceType) : applianceFormData.budgetPerUnit;
+                    const sCount = Number(applianceFormData.serviceCount || 1);
+                    setApplianceFormData((prev) => ({
+                      ...prev,
+                      useStandardRate: checked,
+                      budgetPerUnit: sRate,
+                      totalBudget: sRate * sCount,
+                    }));
+                  }}
+                  className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <span>✓ ใช้อัตรามาตรฐานในการคำนวณ ({getApplianceRate(applianceFormData.applianceType)} บาท/ชิ้น)</span>
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsStandardRatesModalOpen(true)}
+                className="h-6 text-[11px] text-amber-800 hover:text-amber-950 hover:bg-amber-100 px-2"
+              >
+                ⚙️ ปรับอัตรา
+              </Button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>งบประมาณในการดำเนินงาน/ชิ้น (บาท)</Label>
@@ -1477,7 +1529,10 @@ export default function ReportsPage() {
                   min="0"
                   placeholder="เช่น 100.00"
                   value={applianceFormData.budgetPerUnit}
-                  onChange={(e) => handleApplianceQtyOrBudgetChange('budgetPerUnit', Number(e.target.value))}
+                  onChange={(e) => {
+                    handleApplianceQtyOrBudgetChange('budgetPerUnit', Number(e.target.value));
+                    setApplianceFormData((prev) => ({ ...prev, useStandardRate: false }));
+                  }}
                 />
               </div>
 
@@ -1651,6 +1706,38 @@ export default function ReportsPage() {
               </div>
             </div>
 
+            {/* Standard Rate Toggle Checkbox */}
+            <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl border border-blue-200">
+              <label className="text-xs font-bold text-blue-950 flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={vehicleFormData.useStandardRate}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    const sRate = checked ? getVehicleRate(vehicleFormData.vehicleType) : vehicleFormData.budgetPerUnit;
+                    const sCount = Number(vehicleFormData.serviceCount || 1);
+                    setVehicleFormData((prev) => ({
+                      ...prev,
+                      useStandardRate: checked,
+                      budgetPerUnit: sRate,
+                      totalBudget: sRate * sCount,
+                    }));
+                  }}
+                  className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <span>✓ ใช้อัตรามาตรฐานในการคำนวณ ({getVehicleRate(vehicleFormData.vehicleType)} บาท/คัน)</span>
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsStandardRatesModalOpen(true)}
+                className="h-6 text-[11px] text-blue-800 hover:text-blue-950 hover:bg-blue-100 px-2"
+              >
+                ⚙️ ปรับอัตรา
+              </Button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>งบประมาณในการดำเนินงาน/ชิ้น (บาท)</Label>
@@ -1658,9 +1745,12 @@ export default function ReportsPage() {
                   type="number"
                   step="0.5"
                   min="0"
-                  placeholder="เช่น 150.00"
+                  placeholder="เช่น 300.00"
                   value={vehicleFormData.budgetPerUnit}
-                  onChange={(e) => handleVehicleQtyOrBudgetChange('budgetPerUnit', Number(e.target.value))}
+                  onChange={(e) => {
+                    handleVehicleQtyOrBudgetChange('budgetPerUnit', Number(e.target.value));
+                    setVehicleFormData((prev) => ({ ...prev, useStandardRate: false }));
+                  }}
                 />
               </div>
 
@@ -1718,6 +1808,15 @@ export default function ReportsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Standard Rates Settings Modal ── */}
+      <StandardRatesModal
+        isOpen={isStandardRatesModalOpen}
+        onClose={() => setIsStandardRatesModalOpen(false)}
+        onSaved={() => {
+          fetchAllReportData();
+        }}
+      />
 
       {/* ── Official A4 Landscape Print Layouts (Visible only when printing) ── */}
       {activeReportTab === 'appliances' && (
