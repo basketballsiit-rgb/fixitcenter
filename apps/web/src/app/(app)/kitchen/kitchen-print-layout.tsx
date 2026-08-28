@@ -222,13 +222,15 @@ export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
                     <td className="border border-black py-1.5 px-1 whitespace-nowrap">
                       {thaiDateShort}
                     </td>
-                    <td className="border border-black py-1.5 px-2 text-left">
-                      <div className="font-semibold text-slate-900">{log.menuName}</div>
-                      <div className="text-[10px] text-slate-600">
-                        {isAllCenters && log.center?.name ? `ศูนย์: ${log.center.name} | ` : ''}
-                        {log.targetLocation ? `จุดบริการ: ${log.targetLocation}` : ''}
+                    <td className="border border-black py-1.5 px-2 text-left leading-snug">
+                      <div className="font-semibold text-slate-900">
+                        {log.center?.name ? `ศูนย์: ${log.center.name}` : ''}
+                        {log.targetLocation ? ` | จุดบริการ: ${log.targetLocation}` : ''}
                       </div>
-                      {log.notes && <div className="text-[9px] text-slate-500">หมายเหตุ: {log.notes}</div>}
+                      <div className="text-[11px] text-slate-800 mt-0.5">
+                        <span className="font-bold text-slate-900">เมนู:</span> {log.menuName}
+                      </div>
+                      {log.notes && <div className="text-[9px] text-slate-500 mt-0.5">หมายเหตุ: {log.notes}</div>}
                     </td>
                     <td className="border border-black py-1.5 px-1 font-mono font-semibold">
                       {bQty > 0 ? bQty.toLocaleString() : '-'}
