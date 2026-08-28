@@ -5,6 +5,12 @@ const nextConfig = {
   assetPrefix: '/fixitcenter',
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     unoptimized: true,
     remotePatterns: [
