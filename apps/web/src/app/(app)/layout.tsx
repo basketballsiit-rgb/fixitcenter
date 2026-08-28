@@ -87,6 +87,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, [isAuthenticated, recordActivity, checkIdleTimeout, router]);
 
+  // 3. Technician Role Route Isolation: Technicians can only access /workspace and /handover
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'TECHNICIAN') {
+      if (!pathname.startsWith('/workspace') && !pathname.startsWith('/handover')) {
+        router.replace('/workspace');
+      }
+    }
+  }, [isAuthenticated, user, pathname, router]);
+
   if (!isAuthenticated) return null;
 
   const handleLogout = () => {
@@ -115,16 +124,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        <Link
-          href="/"
-          onClick={() => setSidebarOpen(false)}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-brand-orange transition-colors group mb-2 border border-slate-200/80 bg-slate-50/70"
-        >
-          <Globe className="h-4 w-4 text-brand-orange shrink-0" />
-          <span className="flex-1 text-xs font-semibold">หน้าพอร์ทัลหลัก</span>
-        </Link>
+        {user?.role !== 'TECHNICIAN' && (
+          <Link
+            href="/"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-brand-orange transition-colors group mb-2 border border-slate-200/80 bg-slate-50/70"
+          >
+            <Globe className="h-4 w-4 text-brand-orange shrink-0" />
+            <span className="flex-1 text-xs font-semibold">หน้าพอร์ทัลหลัก</span>
+          </Link>
+        )}
 
-        {NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === 'ADMIN').map((item) => {
+        {NAV_ITEMS.filter((item) => {
+          if (user?.role === 'TECHNICIAN') {
+            return item.href === '/workspace';
+          }
+          if (item.adminOnly) {
+            return user?.role === 'ADMIN';
+          }
+          return true;
+        }).map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
           return (
             <Link

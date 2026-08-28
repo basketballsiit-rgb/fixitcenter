@@ -36,7 +36,12 @@ export default function LoginPage() {
         username: data.username.trim(),
         password: data.password.trim(),
       });
-      router.push('/dashboard');
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser?.role === 'TECHNICIAN') {
+        router.push('/workspace');
+      } else {
+        router.push('/dashboard');
+      }
     } catch {
       // error is set in store
     }
