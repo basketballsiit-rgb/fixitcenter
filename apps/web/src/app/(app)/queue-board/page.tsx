@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Maximize2,
@@ -78,7 +78,7 @@ const STATUS_MAP: Record<string, { label: string; bg: string; text: string; icon
   PENDING: { label: 'รอดำเนินการ', bg: 'bg-slate-700/50 border-slate-600', text: 'text-slate-300', icon: Clock },
 };
 
-export default function QueueBoardPage() {
+function QueueBoardContent() {
   const { board, setQueueBoard } = useQueueStore();
   const { user } = useAuthStore();
   const searchParams = useSearchParams();
@@ -615,5 +615,13 @@ export default function QueueBoardPage() {
         </span>
       </div>
     </div>
+  );
+}
+
+export default function QueueBoardPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">กำลังโหลดกระดานคิว...</div>}>
+      <QueueBoardContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -79,7 +79,7 @@ const TRADE_ICONS: Record<string, React.ComponentType<any>> = {
   AUTOMOTIVE: Car,
 };
 
-export default function RegistrationPage() {
+function RegistrationPageContent() {
   const { toast } = useToast();
   const { user } = useAuthStore();
   const isSuperAdmin = user?.role === 'ADMIN';
@@ -2262,5 +2262,13 @@ export default function RegistrationPage() {
       {printOrder && <PrintLayout {...printOrder} />}
       {printTagOrder && <PrintTagLayout {...printTagOrder} />}
     </div>
+  );
+}
+
+export default function RegistrationPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">กำลังโหลดระบบลงทะเบียน...</div>}>
+      <RegistrationPageContent />
+    </Suspense>
   );
 }

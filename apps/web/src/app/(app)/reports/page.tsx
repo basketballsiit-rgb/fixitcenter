@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import {
   Car,
   Utensils,
@@ -82,7 +82,7 @@ const VEHICLE_TYPE_OPTIONS = [
   'อื่นๆ',
 ];
 
-export default function ReportsPage() {
+function ReportsPageContent() {
   const { toast } = useToast();
   const { user } = useAuthStore();
   const isSuperAdmin = user?.role === 'ADMIN';
@@ -1258,9 +1258,11 @@ export default function ReportsPage() {
                 <span className="text-xs text-blue-200 font-medium">งบประมาณรวมทั้ง 3 กิจกรรม</span>
                 <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono mt-1">
                   ฿{(
-                    applianceSummary.totalBudget +
-                    vehicleSummary.totalBudget +
-                    (kitchenSummary.totalBoxes * 50 + kitchenSummary.totalWater * 7 + kitchenSummary.totalRelief * 500)
+                    (Number(applianceSummary?.totalBudget) || 0) +
+                    (Number(vehicleSummary?.totalBudget) || 0) +
+                    ((Number(kitchenSummary?.totalBoxes) || 0) * 50 +
+                      (Number(kitchenSummary?.totalWater) || 0) * 7 +
+                      (Number(kitchenSummary?.totalRelief) || 0) * 500)
                   ).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <span className="text-[11px] text-blue-300 mt-0.5 block">คำนวณจากยอดอะไหล่/วัตถุดิบทุกกิจกรรม</span>
@@ -1270,9 +1272,9 @@ export default function ReportsPage() {
                 <span className="text-xs text-blue-200 font-medium">ยอดรับบริการและแจกจ่ายรวม</span>
                 <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono mt-1">
                   {(
-                    applianceSummary.totalServices +
-                    vehicleSummary.totalServices +
-                    kitchenSummary.totalQuantity
+                    (Number(applianceSummary?.totalServices) || 0) +
+                    (Number(vehicleSummary?.totalServices) || 0) +
+                    (Number(kitchenSummary?.totalQuantity) || 0)
                   ).toLocaleString()}{' '}
                   <span className="text-sm font-normal text-white">รายการ</span>
                 </div>
@@ -1282,15 +1284,20 @@ export default function ReportsPage() {
               <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                 <span className="text-xs text-blue-200 font-medium">งานซ่อมสำเร็จรวม</span>
                 <div className="text-2xl sm:text-3xl font-black text-cyan-300 font-mono mt-1">
-                  {(applianceSummary.totalCompleted + vehicleSummary.totalCompleted).toLocaleString()}{' '}
+                  {(
+                    (Number(applianceSummary?.totalCompleted) || 0) +
+                    (Number(vehicleSummary?.totalCompleted) || 0)
+                  ).toLocaleString()}{' '}
                   <span className="text-sm font-normal text-white">ชิ้น/คัน</span>
                 </div>
                 <span className="text-[11px] text-blue-300 mt-0.5 block">
                   คิดเป็นอัตราสำเร็จ{' '}
-                  {applianceSummary.totalServices + vehicleSummary.totalServices > 0
+                  {(Number(applianceSummary?.totalServices) || 0) + (Number(vehicleSummary?.totalServices) || 0) > 0
                     ? Math.round(
-                        ((applianceSummary.totalCompleted + vehicleSummary.totalCompleted) /
-                          (applianceSummary.totalServices + vehicleSummary.totalServices)) *
+                        (((Number(applianceSummary?.totalCompleted) || 0) +
+                          (Number(vehicleSummary?.totalCompleted) || 0)) /
+                          ((Number(applianceSummary?.totalServices) || 0) +
+                            (Number(vehicleSummary?.totalServices) || 0))) *
                           100
                       )
                     : 0}
@@ -1855,5 +1862,13 @@ export default function ReportsPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">กำลังโหลดระบบรายงาน...</div>}>
+      <ReportsPageContent />
+    </Suspense>
   );
 }
