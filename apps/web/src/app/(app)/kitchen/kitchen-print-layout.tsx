@@ -78,10 +78,20 @@ export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
   return (
     <div
       id="kitchen-print-a4"
-      className="print-only hidden print:block text-black bg-white"
+      className="print-landscape-only hidden print:block text-black bg-white"
       style={{ fontFamily: 'Sarabun, sans-serif' }}
     >
-      <div className="w-[210mm] max-w-[210mm] mx-auto p-4 text-[12px] leading-relaxed">
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @page {
+              size: A4 landscape !important;
+              margin: 6mm 10mm !important;
+            }
+          `,
+        }}
+      />
+      <div className="w-[280mm] max-w-[280mm] mx-auto p-4 text-[12px] leading-relaxed">
         
         {/* ── Top Official Header (Exact Format from Image) ── */}
         <div className="text-center mb-4 space-y-1">
