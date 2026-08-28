@@ -4,6 +4,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { authApi, LoginCredentials } from '@/lib/api';
 
+// 12 Hours in milliseconds
+export const MAX_IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
+
 interface User {
   id: string;
   username: string;
@@ -21,6 +24,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  lastActivityTime: number | null;
 }
 
 interface AuthActions {
@@ -28,16 +32,19 @@ interface AuthActions {
   logout: () => void;
   setUser: (user: User) => void;
   clearError: () => void;
+  recordActivity: () => boolean; // Returns false if expired and logged out
+  checkIdleTimeout: () => boolean; // Returns true if session is valid, false if expired
 }
 
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      lastActivityTime: null,
 
       login: async (credentials) => {
         set({ isLoading: true, error: null });
@@ -48,8 +55,10 @@ export const useAuthStore = create<AuthState & AuthActions>()(
             ...user,
             name: user.name || user.fullName || user.username,
           };
+          const now = Date.now();
           if (typeof window !== 'undefined') {
             localStorage.setItem('access_token', access_token);
+            localStorage.setItem('last_active_time', now.toString());
           }
           set({
             user: userObj,
@@ -57,6 +66,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
             isAuthenticated: true,
             isLoading: false,
             error: null,
+            lastActivityTime: now,
           });
         } catch (err: unknown) {
           const message =
@@ -70,27 +80,69 @@ export const useAuthStore = create<AuthState & AuthActions>()(
       logout: () => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('access_token');
+          localStorage.removeItem('last_active_time');
         }
         set({
           user: null,
           accessToken: null,
           isAuthenticated: false,
           error: null,
+          lastActivityTime: null,
         });
       },
 
       setUser: (user) => set({ user }),
       clearError: () => set({ error: null }),
+
+      recordActivity: () => {
+        const state = get();
+        if (!state.isAuthenticated) return false;
+
+        const now = Date.now();
+        const last = state.lastActivityTime || now;
+
+        // Check if exceeded 12 hours of inactivity
+        if (now - last > MAX_IDLE_TIMEOUT_MS) {
+          state.logout();
+          return false;
+        }
+
+        // Throttle updates: update timestamp at most once every 30 seconds
+        if (now - last > 30000 || !state.lastActivityTime) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('last_active_time', now.toString());
+          }
+          set({ lastActivityTime: now });
+        }
+        return true;
+      },
+
+      checkIdleTimeout: () => {
+        const state = get();
+        if (!state.isAuthenticated) return false;
+
+        const now = Date.now();
+        const last = state.lastActivityTime;
+
+        if (!last || now - last > MAX_IDLE_TIMEOUT_MS) {
+          state.logout();
+          return false;
+        }
+        return true;
+      },
     }),
     {
       name: 'npc-auth',
       storage: createJSONStorage(() =>
-        typeof window !== 'undefined' ? localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+        typeof window !== 'undefined'
+          ? localStorage
+          : { getItem: () => null, setItem: () => {}, removeItem: () => {} }
       ),
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
         isAuthenticated: state.isAuthenticated,
+        lastActivityTime: state.lastActivityTime,
       }),
     }
   )

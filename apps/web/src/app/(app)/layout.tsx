@@ -35,14 +35,57 @@ const ROLE_LABELS: Record<string, string> = {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, recordActivity, checkIdleTimeout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // 1. Initial auth check & 12-hour idle timeout check
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace('/login');
+      return;
     }
-  }, [isAuthenticated, router]);
+
+    const isValid = checkIdleTimeout();
+    if (!isValid) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, checkIdleTimeout, router]);
+
+  // 2. User activity listener (touch, click, keydown, scroll) to maintain 12h active session
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleUserInteraction = () => {
+      const isStillValid = recordActivity();
+      if (!isStillValid) {
+        router.replace('/login');
+      }
+    };
+
+    // Update on mount
+    handleUserInteraction();
+
+    window.addEventListener('touchstart', handleUserInteraction, { passive: true });
+    window.addEventListener('mousedown', handleUserInteraction, { passive: true });
+    window.addEventListener('keydown', handleUserInteraction, { passive: true });
+    window.addEventListener('scroll', handleUserInteraction, { passive: true });
+
+    // Periodic check every 1 minute
+    const interval = setInterval(() => {
+      const isValid = checkIdleTimeout();
+      if (!isValid) {
+        router.replace('/login');
+      }
+    }, 60000);
+
+    return () => {
+      window.removeEventListener('touchstart', handleUserInteraction);
+      window.removeEventListener('mousedown', handleUserInteraction);
+      window.removeEventListener('keydown', handleUserInteraction);
+      window.removeEventListener('scroll', handleUserInteraction);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated, recordActivity, checkIdleTimeout, router]);
 
   if (!isAuthenticated) return null;
 

@@ -89,7 +89,7 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),
+      expiresIn: this.config.get('JWT_EXPIRES_IN', '24h'),
     });
 
     const refreshToken = this.jwtService.sign(
@@ -101,7 +101,7 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: refreshToken,
       token_type: 'Bearer',
-      expires_in: 900, // 15 minutes in seconds
+      expires_in: 86400, // 24 hours in seconds
       user: {
         id: user.id,
         username: user.username,
