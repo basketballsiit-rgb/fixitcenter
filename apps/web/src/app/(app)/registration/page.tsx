@@ -29,7 +29,7 @@ import {
 } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuthStore } from '@/store/auth.store';
-import { formatNationalId, formatPhone } from '@/lib/utils';
+import { cn, formatNationalId, formatPhone } from '@/lib/utils';
 import { PrintLayout } from './print-layout';
 import { PrintTagLayout } from './print-tag-layout';
 
