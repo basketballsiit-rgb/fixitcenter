@@ -9,7 +9,7 @@ import {
   Printer, Save, Camera, CameraOff, AlertCircle, Zap, Laptop, Car,
   Search, RefreshCw, Eye, CheckCircle2, Clock, Wrench, ShieldCheck,
   PackageCheck, User, Phone, MapPin, Upload, Image as ImageIcon, X,
-  Edit, Trash2, PlusCircle, Tag, Check, PenTool
+  Edit, Trash2, PlusCircle, Tag, Check, PenTool, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

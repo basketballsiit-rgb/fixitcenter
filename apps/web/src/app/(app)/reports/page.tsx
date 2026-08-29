@@ -778,11 +778,13 @@ function ReportsPageContent() {
                     ) : (
                       filteredApplianceLogs.map((log, index) => {
                         const dateObj = new Date(log.serviceDate);
-                        const thaiDate = dateObj.toLocaleDateString('th-TH', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: '2-digit',
-                        });
+                        const thaiDate = !isNaN(dateObj.getTime())
+                          ? dateObj.toLocaleDateString('th-TH', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: '2-digit',
+                            })
+                          : (log.serviceDate || '-');
 
                         const sCount = Number(log.serviceCount) || 1;
                         const cCount = Number(log.completedCount) || sCount;
@@ -1051,11 +1053,13 @@ function ReportsPageContent() {
                     ) : (
                       filteredVehicleLogs.map((log, index) => {
                         const dateObj = new Date(log.serviceDate);
-                        const thaiDate = dateObj.toLocaleDateString('th-TH', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: '2-digit',
-                        });
+                        const thaiDate = !isNaN(dateObj.getTime())
+                          ? dateObj.toLocaleDateString('th-TH', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: '2-digit',
+                            })
+                          : (log.serviceDate || '-');
 
                         const sCount = Number(log.serviceCount) || 1;
                         const cCount = Number(log.completedCount) || sCount;
