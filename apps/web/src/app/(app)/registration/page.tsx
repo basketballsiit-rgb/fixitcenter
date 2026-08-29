@@ -315,7 +315,13 @@ function RegistrationPageContent() {
   const startCamera = async () => {
     setShowCamera(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+        },
+      });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -338,7 +344,7 @@ function RegistrationPageContent() {
   const processOcrOnImage = async (canvasOrBase64: HTMLCanvasElement | string, cardImageBase64?: string) => {
     setOcrLoading(true);
     setOcrProgressPercent(10);
-    setOcrProgressText('กำลังเตรียมประมวลผล OCR...');
+    setOcrProgressText('กำลังเชื่อมต่อเอนจิน AI OCR...');
     try {
       const extracted = await scanIdCardImage(canvasOrBase64, (pct, status) => {
         setOcrProgressPercent(pct);
@@ -374,7 +380,7 @@ function RegistrationPageContent() {
       } else {
         toast({
           title: '📷 บันทึกภาพบัตรประชาชนเรียบร้อย',
-          description: 'สามารถตรวจสอบและกรอกข้อมูลเพิ่มเติมในแบบฟอร์มได้ทันที',
+          description: 'ตรวจสอบและปรับปรุงข้อมูลในหน้าต่างยืนยันได้ทันที',
         });
       }
 
@@ -394,12 +400,12 @@ function RegistrationPageContent() {
   const capturePhoto = async () => {
     if (!videoRef.current) return;
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
+    canvas.width = videoRef.current.videoWidth || 1280;
+    canvas.height = videoRef.current.videoHeight || 720;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (ctx) {
       ctx.drawImage(videoRef.current, 0, 0);
-      const base64 = canvas.toDataURL('image/jpeg', 0.9);
+      const base64 = canvas.toDataURL('image/jpeg', 0.92);
       stopCamera();
       await processOcrOnImage(canvas, base64);
     } else {
@@ -411,7 +417,13 @@ function RegistrationPageContent() {
   const startIdCardCamera = async () => {
     setShowIdCardCamera(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+        },
+      });
       idCardStreamRef.current = stream;
       if (idCardVideoRef.current) {
         idCardVideoRef.current.srcObject = stream;
@@ -433,12 +445,12 @@ function RegistrationPageContent() {
   const captureIdCardPhoto = async () => {
     if (!idCardVideoRef.current) return;
     const canvas = document.createElement('canvas');
-    canvas.width = idCardVideoRef.current.videoWidth;
-    canvas.height = idCardVideoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
+    canvas.width = idCardVideoRef.current.videoWidth || 1280;
+    canvas.height = idCardVideoRef.current.videoHeight || 720;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (ctx) {
       ctx.drawImage(idCardVideoRef.current, 0, 0);
-      const base64 = canvas.toDataURL('image/jpeg', 0.9);
+      const base64 = canvas.toDataURL('image/jpeg', 0.92);
       setIdCardImage(base64);
       stopIdCardCamera();
       toast({ title: '✓ ถ่ายภาพบัตรประชาชนเรียบร้อยแล้ว กำลังเริ่มอ่านข้อมูล OCR...' });
