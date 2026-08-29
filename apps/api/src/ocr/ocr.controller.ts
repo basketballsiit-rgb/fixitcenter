@@ -12,15 +12,23 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { PermissionsGuard } from '../common/guards/roles.guard';
 
+import { IsString, IsNotEmpty } from 'class-validator';
+
 class SaveApiKeyDto {
+  @IsString()
+  @IsNotEmpty()
   apiKey: string;
 }
 
 class TestApiKeyDto {
+  @IsString()
+  @IsNotEmpty()
   apiKey: string;
 }
 
 class ScanCardDto {
+  @IsString()
+  @IsNotEmpty()
   imageBase64: string;
 }
 
