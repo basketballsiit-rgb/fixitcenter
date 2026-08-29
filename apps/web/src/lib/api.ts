@@ -550,5 +550,34 @@ export const applianceApi = {
 
 
 
+export interface OcrConfig {
+  hasKey: boolean;
+  maskedKey: string;
+  provider: string;
+}
+
+export interface ExtractedThaiIdCard {
+  nationalId: string;
+  title: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  birthDate?: string;
+  expireDate?: string;
+  rawText?: string;
+  confidence: number;
+  provider: 'gemini' | 'local';
+}
+
+export const ocrApi = {
+  getSettings: () => api.get<OcrConfig>('/ocr/settings'),
+  saveSettings: (apiKey: string) => api.post<{ success: boolean; message: string }>('/ocr/settings', { apiKey }),
+  testKey: (apiKey: string) => api.post<{ success: boolean; message: string }>('/ocr/test-key', { apiKey }),
+  scanIdCard: (imageBase64: string) =>
+    api.post<{ success: boolean; fallback?: boolean; message?: string; data?: ExtractedThaiIdCard }>('/ocr/scan-id-card', {
+      imageBase64,
+    }),
+};
+
 export default api;
 

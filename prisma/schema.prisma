@@ -515,3 +515,16 @@ model ApplianceLog {
   @@index([serviceDate])
   @@map("appliance_logs")
 }
+
+// ─────────────────────────────────────────
+// System Settings (Global System Configuration & AI Keys)
+// ─────────────────────────────────────────
+
+model SystemSetting {
+  key         String   @id // e.g. "GEMINI_API_KEY", "AI_OCR_PROVIDER"
+  value       String   @db.Text
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

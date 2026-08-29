@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import {
   Users, Target, Building2, Plus, Edit2, Trash2, CheckCircle2,
   XCircle, Shield, Key, Search, RefreshCw, Phone, MapPin, Calendar,
-  AlertCircle, Tag, Zap, Cpu, Car, Wrench
+  AlertCircle, Tag, Zap, Cpu, Car, Wrench, Sparkles, Bot, ExternalLink, KeyRound, Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import {
-  userApi, missionApi, centerApi, categoryApi,
+  userApi, missionApi, centerApi, categoryApi, ocrApi,
   type UserItem, type Role, type Mission, type Center, type RepairCategory
 } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
@@ -93,9 +93,76 @@ function AdminConsoleContent() {
     isActive: true,
   });
 
+  // ─── States: AI Vision OCR Settings ──────────────────────────────────────────
+  const [hasAiKey, setHasAiKey] = useState(false);
+  const [maskedAiKey, setMaskedAiKey] = useState('');
+  const [aiApiKeyInput, setAiApiKeyInput] = useState('');
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   const isCenterAdmin = currentUser?.role === 'CENTER_ADMIN';
 
   // ─── Load Data ───────────────────────────────────────────────────────────────
+
+  const loadAiSettings = useCallback(async () => {
+    try {
+      const res = await ocrApi.getSettings();
+      if (res.data) {
+        setHasAiKey(res.data.hasKey);
+        setMaskedAiKey(res.data.maskedKey || '');
+      }
+    } catch {}
+  }, []);
+
+  const handleSaveAiKey = async () => {
+    if (!aiApiKeyInput.trim()) {
+      toast({ title: 'กรุณากรอก Google Gemini API Key', variant: 'destructive' });
+      return;
+    }
+    setAiSaving(true);
+    try {
+      const res = await ocrApi.saveSettings(aiApiKeyInput.trim());
+      if (res.data?.success) {
+        toast({ title: '✓ บันทึก Google Gemini API Key เรียบร้อยแล้ว' });
+        setHasAiKey(true);
+        setMaskedAiKey(
+          aiApiKeyInput.trim().length > 8
+            ? `${aiApiKeyInput.trim().substring(0, 6)}...${aiApiKeyInput.trim().substring(aiApiKeyInput.trim().length - 4)}`
+            : '******'
+        );
+        setAiApiKeyInput('');
+        setAiTestResult(null);
+      }
+    } catch (err: any) {
+      toast({ title: 'บันทึกไม่สำเร็จ', description: err?.response?.data?.message || err?.message, variant: 'destructive' });
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  const handleTestAiKey = async () => {
+    const keyToTest = aiApiKeyInput.trim();
+    if (!keyToTest && !hasAiKey) {
+      toast({ title: 'กรุณากรอก API Key ก่อนกดทดสอบ', variant: 'destructive' });
+      return;
+    }
+    setAiTesting(true);
+    setAiTestResult(null);
+    try {
+      const res = await ocrApi.testKey(keyToTest);
+      setAiTestResult(res.data);
+      if (res.data?.success) {
+        toast({ title: '✓ เชื่อมต่อ Google Gemini AI สำเร็จพร้อมใช้งาน!' });
+      } else {
+        toast({ title: 'เชื่อมต่อไม่สำเร็จ', description: res.data?.message, variant: 'destructive' });
+      }
+    } catch (err: any) {
+      setAiTestResult({ success: false, message: err?.response?.data?.message || err?.message || 'เชื่อมต่อไม่สำเร็จ' });
+    } finally {
+      setAiTesting(false);
+    }
+  };
 
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -153,7 +220,8 @@ function AdminConsoleContent() {
     loadMissions();
     loadCenters();
     loadCategories();
-  }, [loadUsers, loadMissions, loadCenters, loadCategories]);
+    loadAiSettings();
+  }, [loadUsers, loadMissions, loadCenters, loadCategories, loadAiSettings]);
 
   // ─── User Actions ────────────────────────────────────────────────────────────
 
@@ -497,7 +565,7 @@ function AdminConsoleContent() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className={`grid ${isCenterAdmin ? 'grid-cols-3 max-w-lg' : 'grid-cols-4 max-w-2xl'}`}>
+        <TabsList className={`grid ${isCenterAdmin ? 'grid-cols-4 max-w-2xl' : 'grid-cols-5 max-w-3xl'}`}>
           <TabsTrigger value="users" className="gap-2">
             <Users className="h-4 w-4" />
             {isCenterAdmin ? 'บุคลากรในศูนย์' : 'ผู้ใช้งาน'} ({users.length})
@@ -515,6 +583,10 @@ function AdminConsoleContent() {
           <TabsTrigger value="categories" className="gap-2">
             <Tag className="h-4 w-4" />
             ประเภทงาน/บริการ ({categories.length})
+          </TabsTrigger>
+          <TabsTrigger value="ai-settings" className="gap-2">
+            <Sparkles className="h-4 w-4 text-purple-600" />
+            ตั้งค่า AI OCR
           </TabsTrigger>
         </TabsList>
 
@@ -981,6 +1053,204 @@ function AdminConsoleContent() {
                     )}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            TAB 5: ตั้งค่า AI VISION OCR (GOOGLE GEMINI)
+        ══════════════════════════════════════════════════════════════════════ */}
+        <TabsContent value="ai-settings" className="space-y-6">
+          <Card className="border-purple-200 shadow-md">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border-b border-purple-100 pb-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg text-purple-950 flex items-center gap-2">
+                      <span>ตั้งค่าระบบ AI Vision OCR (อ่านบัตรประชาชนอัจฉริยะ)</span>
+                      {hasAiKey ? (
+                        <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                          ✓ เปิดใช้งาน AI แล้ว
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-xs">
+                          กำลังใช้ OCR มาตรฐานในเครื่อง
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription className="text-purple-800/80">
+                      เชื่อมต่อ Google Gemini Vision AI เพื่อยกระดับความฉลาดในการอ่านภาษาไทย เลข 13 หลัก ชื่อ-นามสกุล และที่อยู่บนบัตรประชาชนให้แม่นยำ 100%
+                    </CardDescription>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadAiSettings}
+                  className="bg-white border-purple-200 text-purple-700 hover:bg-purple-50 self-start sm:self-auto gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  รีเฟรชสถานะ
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6 pt-6">
+              {/* Current Status Box */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                    ผู้ให้บริการ AI ปัจจุบัน
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-5 h-5 text-purple-600" />
+                    <span className="font-bold text-slate-800 text-base">
+                      Google Gemini 1.5 Flash (Vision OCR)
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    อ่านและดึงฟิลด์ข้อมูลบัตรประชาชนไทยเป็น JSON โดยอัตโนมัติ พร้อมตรวจเช็คความถูกต้อง
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                    สถานะการติดตั้ง API Key
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {hasAiKey ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        <span className="font-bold text-emerald-800 text-base">
+                          ติดตั้งคีย์แล้ว ({maskedAiKey})
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                        <span className="font-bold text-amber-800 text-base">
+                          ยังไม่ได้ติดตั้ง API Key
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    {hasAiKey
+                      ? 'ระบบลงทะเบียนจะใช้ Google Gemini AI ในการอ่านบัตรเป็นลำดับแรกเสมอ'
+                      : 'หากยังไม่มีคีย์ ระบบจะใช้เอนจินภายในเครื่อง (Tesseract OCR) เป็นค่าเริ่มต้น'}
+                  </p>
+                </div>
+              </div>
+
+              {/* API Key Form */}
+              <div className="space-y-4 border border-purple-100 rounded-xl p-5 bg-white shadow-xs">
+                <div className="space-y-1">
+                  <Label className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <KeyRound className="w-4 h-4 text-purple-600" />
+                    Google Gemini API Key
+                  </Label>
+                  <p className="text-xs text-slate-500">
+                    นำ API Key ที่ได้จาก Google AI Studio มาวางในช่องนี้ (ขึ้นต้นด้วย <code>AIzaSy...</code>)
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Input
+                    type="password"
+                    value={aiApiKeyInput}
+                    onChange={(e) => setAiApiKeyInput(e.target.value)}
+                    placeholder={hasAiKey ? `คีย์ปัจจุบัน: ${maskedAiKey} (กรอกใหม่หากต้องการเปลี่ยน)` : 'วาง Google Gemini API Key ที่นี่...'}
+                    className="font-mono text-sm h-11"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={aiTesting || (!aiApiKeyInput.trim() && !hasAiKey)}
+                      onClick={handleTestAiKey}
+                      className="border-purple-300 text-purple-800 hover:bg-purple-50 h-11 px-4 whitespace-nowrap gap-1.5"
+                    >
+                      {aiTesting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                      <span>{aiTesting ? 'กำลังทดสอบ...' : 'ทดสอบการเชื่อมต่อ'}</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={aiSaving || !aiApiKeyInput.trim()}
+                      onClick={handleSaveAiKey}
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-bold h-11 px-5 whitespace-nowrap gap-1.5 shadow-sm"
+                    >
+                      {aiSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      <span>{aiSaving ? 'กำลังบันทึก...' : 'บันทึกคีย์ AI'}</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Test Result Message */}
+                {aiTestResult && (
+                  <div
+                    className={`p-3 rounded-lg text-xs font-medium border flex items-center gap-2 ${
+                      aiTestResult.success
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-rose-50 text-rose-800 border-rose-200'
+                    }`}
+                  >
+                    {aiTestResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>{aiTestResult.message}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* How to get a free Google Gemini API Key */}
+              <div className="border border-blue-200 rounded-xl p-5 bg-blue-50/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-sm text-blue-900 flex items-center gap-2">
+                    <span>💡 วิธีการขอรับ Google Gemini API Key ฟรี (ใช้เวลาไม่ถึง 1 นาที)</span>
+                  </h4>
+                  <a
+                    href="https://aistudio.google.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 hover:underline"
+                  >
+                    <span>ไปที่ Google AI Studio</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+
+                <ol className="text-xs text-slate-700 space-y-2 list-decimal list-inside leading-relaxed">
+                  <li>
+                    เข้าสู่เว็บไซต์ <strong>Google AI Studio</strong> (
+                    <a
+                      href="https://aistudio.google.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 font-semibold underline"
+                    >
+                      aistudio.google.com
+                    </a>
+                    ) แล้วล็อกอินด้วยบัญชี Google ของคุณ
+                  </li>
+                  <li>
+                    คลิกปุ่ม <strong>"Get API key"</strong> ที่เมนูด้านซ้ายบน
+                  </li>
+                  <li>
+                    กดปุ่ม <strong>"Create API key"</strong> แล้วเลือกโปรเจกต์ Google Cloud (หรือเลือกสร้างใหม่ฟรี)
+                  </li>
+                  <li>
+                    คัดลอกคีย์ที่ขึ้นต้นด้วย <code>AIzaSy...</code> นำมาวางในช่อง <strong>"Google Gemini API Key"</strong> ด้านบน แล้วกดปุ่ม <strong>"บันทึกคีย์ AI"</strong>
+                  </li>
+                  <li>
+                    เมื่อบันทึกแล้ว หน้าลงทะเบียนรับงานจะสามารถอ่านตัวอักษรภาษาไทย ชื่อ-นามสกุล และที่อยู่บนบัตรประชาชนได้อย่างแม่นยำ 100% ทันที!
+                  </li>
+                </ol>
               </div>
             </CardContent>
           </Card>

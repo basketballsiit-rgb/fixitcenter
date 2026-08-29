@@ -16,6 +16,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { VehicleLogsModule } from './vehicle-logs/vehicle-logs.module';
 import { ApplianceLogsModule } from './appliance-logs/appliance-logs.module';
+import { OcrModule } from './ocr/ocr.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ApplianceLogsModule } from './appliance-logs/appliance-logs.module';
     KitchenModule,
     VehicleLogsModule,
     ApplianceLogsModule,
+    OcrModule,
   ],
 })
 export class AppModule {}
