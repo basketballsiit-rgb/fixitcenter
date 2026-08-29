@@ -504,6 +504,30 @@ function RegistrationPageContent() {
     reader.readAsDataURL(file);
   };
 
+  const handleRotateOcrImage = async () => {
+    if (!ocrReviewData?.cardImage) return;
+    const img = new Image();
+    img.src = ocrReviewData.cardImage;
+    await new Promise((res) => {
+      img.onload = res;
+      img.onerror = res;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = img.height;
+    canvas.height = img.width;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((90 * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      const rotatedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+      setIdCardImage(rotatedBase64);
+      setOcrReviewData((prev: any) => ({ ...prev, cardImage: rotatedBase64 }));
+      toast({ title: '🔄 หมุนภาพ 90° เรียบร้อยแล้ว กำลังเริ่มอ่าน OCR ใหม่...' });
+      await processOcrOnImage(canvas, rotatedBase64);
+    }
+  };
+
   // Device Condition Camera & File Upload
   const startDeviceCamera = async () => {
     setShowDeviceCamera(true);
@@ -1315,9 +1339,21 @@ function RegistrationPageContent() {
                         <ImageIcon className="w-4 h-4" />
                         ภาพถ่ายบัตรประชาชนที่บันทึกได้
                       </span>
-                      <span className="text-emerald-300 text-[11px] font-medium bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-700">
-                        🔍 ตรวจดูความคมชัดของภาพ
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={handleRotateOcrImage}
+                          className="h-7 text-xs bg-slate-800 text-emerald-300 border-emerald-600 hover:bg-slate-700 hover:text-white px-2.5 py-0 gap-1"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>หมุนภาพ 90°</span>
+                        </Button>
+                        <span className="text-emerald-300 text-[11px] font-medium bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-700 hidden sm:inline-block">
+                          🔍 ตรวจดูความคมชัด
+                        </span>
+                      </div>
                     </div>
                     <img
                       src={ocrReviewData.cardImage}
