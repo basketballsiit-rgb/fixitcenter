@@ -86,8 +86,15 @@ function RegistrationPageContent() {
   const isSuperAdmin = user?.role === 'ADMIN';
   const userCenterId = user?.centerId || '';
 
-  const searchParams = useSearchParams();
-  const queryCenterId = searchParams.get('centerId');
+  const [queryCenterId, setQueryCenterId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const cId = params.get('centerId');
+      if (cId) setQueryCenterId(cId);
+    }
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'register' | 'list'>('register');
   const [centers, setCenters] = useState<Center[]>([]);
@@ -1051,7 +1058,7 @@ function RegistrationPageContent() {
 
   const watchedTradeCode = watch('tradeCode') || '';
   const selectedCategory = categories.find((c) => c.code === watchedTradeCode);
-  const isOtherCategory = watchedTradeCode.endsWith('99') || watchedTradeCode === 'OTHER' || (selectedCategory?.name.includes('อื่น') ?? false);
+  const isOtherCategory = watchedTradeCode.endsWith('99') || watchedTradeCode === 'OTHER' || (selectedCategory?.name ? selectedCategory.name.includes('อื่น') : false);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
@@ -1073,12 +1080,12 @@ function RegistrationPageContent() {
         <div className="flex flex-wrap items-center gap-2">
           {missions[0] && (
             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1 text-xs">
-              ภารกิจ: {missions[0].name} (ปี {missions[0].fiscalYear})
+              ภารกิจ: {missions[0]?.name || ''} (ปี {missions[0]?.fiscalYear || ''})
             </Badge>
           )}
           {centers[0] && (
             <Badge variant="secondary" className="bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 text-xs">
-              📍 {centers.find((c) => c.id === watch('centerId'))?.name || centers[0].name}
+              📍 {centers.find((c) => c.id === watch('centerId'))?.name || centers[0]?.name || ''}
             </Badge>
           )}
         </div>
