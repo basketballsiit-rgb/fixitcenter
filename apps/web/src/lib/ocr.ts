@@ -268,23 +268,9 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
     if (firstName && lastName) break;
   }
 
-  // Fallback: Check English name if Thai name was blurry/missed
-  if (!firstName || !lastName) {
-    let engFirst = '';
-    let engLast = '';
-    for (const line of lines) {
-      if (line.includes('Name') && !line.includes('Last')) {
-        const match = line.match(/Name\s+(?:Mr\.|Mrs\.|Miss\s+)?([A-Za-z]+)/i);
-        if (match) engFirst = match[1];
-      }
-      if (line.includes('Last') || line.includes('name')) {
-        const match = line.match(/Last\s*name\s+([A-Za-z]+)/i);
-        if (match) engLast = match[1];
-      }
-    }
-    if (!firstName && engFirst) firstName = engFirst;
-    if (!lastName && engLast) lastName = engLast;
-  }
+  // Ensure only Thai characters in firstName and lastName
+  firstName = firstName.replace(/[^ก-๙\s]/g, '').trim();
+  lastName = lastName.replace(/[^ก-๙\s]/g, '').trim();
 
   // ── C. EXTRACT ADDRESS (ที่อยู่ตามบัตรประชาชน) ──
   const addressStartKeywords = [

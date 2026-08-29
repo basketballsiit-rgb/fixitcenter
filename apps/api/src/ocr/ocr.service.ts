@@ -154,25 +154,25 @@ export class OcrService implements OnModuleInit {
         'gemini-1.5-pro',
       ];
 
-      const systemPrompt = `You are a high-precision OCR AI engine specialized in reading official Thai Citizen ID Cards (บัตรประจำตัวประชาชนไทย).
-Analyze the ID card image with extreme precision. Extract:
-1. "nationalId": 13-digit Thai identification number (digits only, no spaces/hyphens).
-2. "title": Thai title prefix (e.g. "นาย", "นาง", "นางสาว", "เด็กชาย", "เด็กหญิง").
-3. "firstName": Thai first name (e.g. "นิพนธ์", "สมชาย").
-4. "lastName": Thai last name (e.g. "ร่องพืช", "ใจดี").
-5. "address": Full Thai address printed on the card (e.g. "275/2 หมู่ที่ 1 ต.หนองม่วงไข่ อ.หนองม่วงไข่ จ.แพร่").
-6. "birthDate": Birth date text if visible (e.g. "5 พ.ค. 2514").
-7. "expireDate": Expiry date text if visible.
+      const systemPrompt = `คุณคือระบบ AI OCR อัจฉริยะความแม่นยำสูงพิเศษสำหรับการอ่านข้อมูลบัตรประจำตัวประชาชนไทย (Thai Citizen ID Card)
+หน้าที่ของคุณคือวิเคราะห์รูปภาพบัตรประชาชน และสกัดข้อมูลสำคัญ 3 ส่วนนี้เท่านั้น โดยต้องมีความถูกต้องแม่นยำสูงสุด 100%:
 
-Output MUST BE ONLY a single raw valid JSON object without markdown fences, without \`\`\`json, matching this schema:
+1. "nationalId": เลขประจำตัวประชาชน 13 หลัก (เฉพาะตัวเลข 13 ตัวเท่านั้น ห้ามมีขีดหรือช่องว่าง เช่น "3540600210162")
+2. "title": คำนำหน้าชื่อภาษาไทย (เช่น "นาย", "นาง", "นางสาว", "เด็กชาย", "เด็กหญิง")
+3. "firstName": ชื่อจริงภาษาไทยเท่านั้น ห้ามใส่ภาษาอังกฤษ และห้ามมีคำนำหน้าปน (เช่น "นิพนธ์", "สมชาย")
+4. "lastName": นามสกุลภาษาไทยเท่านั้น ห้ามใส่ภาษาอังกฤษ (เช่น "ร่องพืช", "ใจดี")
+5. "address": ที่อยู่ภาษาไทยตามที่ระบุบนบัตรประชาชนอย่างครบถ้วน (เช่น "275/2 หมู่ที่ 1 ต.หนองม่วงไข่ อ.หนองม่วงไข่ จ.แพร่")
+
+กฎสำคัญ:
+- ห้ามดึงข้อมูลภาษาอังกฤษ (ห้ามดึง Name Mr. ... หรือ Last name ...) ชื่อและนามสกุลต้องเป็นภาษาไทยที่ถูกต้องและสะกดตรงตามบัตรเท่านั้น
+- ข้อมูลที่อยู่ ให้ดึงเฉพาะข้อความที่อยู่ภาษาไทยตั้งแต่บ้านเลขที่ จนถึงตำบล อำเภอ จังหวัด
+- ตอบกลับเป็น JSON object รูปแบบนี้เท่านั้น ห้ามใส่คำอธิบายอื่น และห้ามใส่ markdown \`\`\`json:
 {
   "nationalId": "3540600210162",
   "title": "นาย",
   "firstName": "นิพนธ์",
   "lastName": "ร่องพืช",
-  "address": "275/2 หมู่ที่ 1 ต.หนองม่วงไข่ อ.หนองม่วงไข่ จ.แพร่",
-  "birthDate": "5 พ.ค. 2514",
-  "expireDate": "5 พ.ค. 2575"
+  "address": "275/2 หมู่ที่ 1 ต.หนองม่วงไข่ อ.หนองม่วงไข่ จ.แพร่"
 }`;
 
       const payload = {
