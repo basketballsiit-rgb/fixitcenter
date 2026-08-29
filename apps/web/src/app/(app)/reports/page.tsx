@@ -18,6 +18,7 @@ import {
   BarChart3,
   Wrench,
   Tv,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

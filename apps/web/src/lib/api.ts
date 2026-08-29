@@ -248,6 +248,8 @@ export interface RepairOrder {
   handoverBy?: string | null;
   closedAt?: string | null;
   registeredAt?: string | null;
+  center?: Center | any;
+  mission?: Mission | any;
   customer: {
     id?: string;
     firstName: string;
