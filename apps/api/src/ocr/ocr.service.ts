@@ -77,30 +77,59 @@ export class OcrService implements OnModuleInit {
   }
 
   async testGeminiKey(apiKey: string): Promise<{ success: boolean; message: string }> {
-    if (!apiKey || apiKey.trim().length < 10) {
+    const cleanKey = (apiKey || '').trim();
+    if (!cleanKey || cleanKey.length < 10) {
       return { success: false, message: 'API Key ไม่ถูกต้อง หรือสั้นเกินไป' };
     }
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
-      const res = await axios.post(
-        url,
-        {
-          contents: [
-            {
-              parts: [{ text: 'Ping test. Reply with: OK' }],
-            },
-          ],
-        },
-        { timeout: 10000 }
-      );
-      if (res.status === 200) {
-        return { success: true, message: 'เชื่อมต่อ Google Gemini AI สำเร็จพร้อมใช้งาน!' };
-      }
-      return { success: false, message: `Google API status: ${res.status}` };
-    } catch (err: any) {
-      const errMsg = err?.response?.data?.error?.message || err?.message || 'ไม่สามารถเชื่อมต่อได้';
-      return { success: false, message: `เกิดข้อผิดพลาด: ${errMsg}` };
+
+    if (!cleanKey.startsWith('AIzaSy')) {
+      return {
+        success: false,
+        message: 'Google Gemini API Key ต้องขึ้นต้นด้วย "AIzaSy..." กรุณาไปที่ https://aistudio.google.com/app/apikey เพื่อกด "Create API key" ฟรี',
+      };
     }
+
+    const candidateModels = [
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-pro',
+    ];
+
+    let lastError = '';
+
+    for (const model of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
+        const res = await axios.post(
+          url,
+          {
+            contents: [
+              {
+                parts: [{ text: 'Ping test. Reply with: OK' }],
+              },
+            ],
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': cleanKey,
+            },
+            timeout: 10000,
+          }
+        );
+        if (res.status === 200) {
+          return { success: true, message: `✓ เชื่อมต่อ Google Gemini AI (${model}) สำเร็จพร้อมใช้งาน!` };
+        }
+      } catch (err: any) {
+        lastError = err?.response?.data?.error?.message || err?.message || 'ไม่สามารถเชื่อมต่อได้';
+      }
+    }
+
+    return {
+      success: false,
+      message: `เกิดข้อผิดพลาด: ${lastError} (กรุณาตรวจเช็ค API Key จาก https://aistudio.google.com)`,
+    };
   }
 
   async scanThaiIdCardWithGemini(imageBase64: string): Promise<ExtractedThaiIdCard | null> {
@@ -119,7 +148,11 @@ export class OcrService implements OnModuleInit {
         cleanBase64 = parts[1];
       }
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const candidateModels = [
+        'gemini-1.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-pro',
+      ];
 
       const systemPrompt = `You are a high-precision OCR AI engine specialized in reading official Thai Citizen ID Cards (บัตรประจำตัวประชาชนไทย).
 Analyze the ID card image with extreme precision. Extract:
@@ -163,34 +196,46 @@ Output MUST BE ONLY a single raw valid JSON object without markdown fences, with
         },
       };
 
-      const response = await axios.post(url, payload, { timeout: 25000 });
-      const rawResponseText =
-        response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      for (const model of candidateModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const response = await axios.post(url, payload, {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            timeout: 25000,
+          });
+          const rawResponseText =
+            response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-      if (!rawResponseText) {
-        return null;
+          if (rawResponseText) {
+            const cleanedJson = rawResponseText
+              .replace(/```json/gi, '')
+              .replace(/```/g, '')
+              .trim();
+
+            const parsed = JSON.parse(cleanedJson);
+
+            return {
+              nationalId: (parsed.nationalId || '').replace(/\D/g, ''),
+              title: parsed.title || '',
+              firstName: parsed.firstName || '',
+              lastName: parsed.lastName || '',
+              address: parsed.address || '',
+              birthDate: parsed.birthDate || '',
+              expireDate: parsed.expireDate || '',
+              rawText: rawResponseText,
+              confidence: 99,
+              provider: 'gemini',
+            };
+          }
+        } catch (mErr: any) {
+          this.logger.warn(`Model ${model} try notice: ${mErr?.message}`);
+        }
       }
 
-      // Parse JSON response
-      const cleanedJson = rawResponseText
-        .replace(/```json/gi, '')
-        .replace(/```/g, '')
-        .trim();
-
-      const parsed = JSON.parse(cleanedJson);
-
-      return {
-        nationalId: (parsed.nationalId || '').replace(/\D/g, ''),
-        title: parsed.title || '',
-        firstName: parsed.firstName || '',
-        lastName: parsed.lastName || '',
-        address: parsed.address || '',
-        birthDate: parsed.birthDate || '',
-        expireDate: parsed.expireDate || '',
-        rawText: rawResponseText,
-        confidence: 98,
-        provider: 'gemini',
-      };
+      return null;
     } catch (err: any) {
       this.logger.error(`Gemini Vision OCR error: ${err?.message}`);
       return null;
