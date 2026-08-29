@@ -27,6 +27,8 @@ export const AppliancePrintLayout: React.FC<AppliancePrintLayoutProps> = ({
   const isAllCenters = selectedCenterId === 'ALL' || !selectedCenterId;
   const activeMission = missions.find((m) => m.isActive) || missions[0];
 
+  const safeLogs = Array.isArray(logs) ? logs : [];
+
   // Calculate totals
   let totalServiceCount = 0;
   let totalCompletedCount = 0;
@@ -36,7 +38,7 @@ export const AppliancePrintLayout: React.FC<AppliancePrintLayoutProps> = ({
   let earliestDate: Date | null = null;
   let latestDate: Date | null = null;
 
-  logs.forEach((log) => {
+  safeLogs.forEach((log) => {
     const d = new Date(log.serviceDate);
     if (!earliestDate || d < earliestDate) earliestDate = d;
     if (!latestDate || d > latestDate) latestDate = d;

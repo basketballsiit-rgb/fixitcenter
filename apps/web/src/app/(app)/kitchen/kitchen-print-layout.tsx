@@ -27,6 +27,8 @@ export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
   const isAllCenters = selectedCenterId === 'ALL' || !selectedCenterId;
   const activeMission = missions.find((m) => m.isActive) || missions[0];
 
+  const safeLogs = Array.isArray(logs) ? logs : [];
+
   // Calculate totals
   let totalBoxes = 0;
   let totalWater = 0;
@@ -37,7 +39,7 @@ export const KitchenPrintLayout: React.FC<KitchenPrintLayoutProps> = ({
   let earliestDate: Date | null = null;
   let latestDate: Date | null = null;
 
-  logs.forEach((log) => {
+  safeLogs.forEach((log) => {
     const d = new Date(log.serviceDate);
     if (!earliestDate || d < earliestDate) earliestDate = d;
     if (!latestDate || d > latestDate) latestDate = d;
