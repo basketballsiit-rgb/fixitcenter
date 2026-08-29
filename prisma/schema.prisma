@@ -170,14 +170,15 @@ enum TradeCode {
 // ─────────────────────────────────────────
 
 model RepairCategory {
-  id          String    @id @default(cuid())
-  code        String    @unique // e.g. "E01", "X01", "A01"
-  name        String    // e.g. "พัดลม", "โทรทัศน์", "มอเตอร์ไซค์"
-  tradeCode   TradeCode @map("trade_code") // ELECTRICAL | ELECTRONICS | AUTOMOTIVE
-  description String?
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id             String    @id @default(cuid())
+  code           String    @unique // e.g. "E01", "X01", "A01"
+  name           String    // e.g. "พัดลม", "โทรทัศน์", "มอเตอร์ไซค์"
+  tradeCode      TradeCode @map("trade_code") // ELECTRICAL | ELECTRONICS | AUTOMOTIVE | KITCHEN
+  standardBudget Decimal?  @default(100) @map("standard_budget") @db.Decimal(10, 2)
+  description    String?
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([tradeCode])
   @@index([isActive])

@@ -390,6 +390,7 @@ export interface RepairCategory {
   code: string;
   name: string;
   tradeCode: 'ELECTRICAL' | 'ELECTRONICS' | 'AUTOMOTIVE' | 'KITCHEN';
+  standardBudget?: number | null;
   description?: string | null;
   isActive: boolean;
   createdAt?: string;
@@ -404,12 +405,14 @@ export const categoryApi = {
     code: string;
     name: string;
     tradeCode: string;
+    standardBudget?: number;
     description?: string;
   }) => api.post<RepairCategory>('/categories', data),
   update: (id: string, data: Partial<{
     code: string;
     name: string;
     tradeCode: string;
+    standardBudget: number;
     description: string;
     isActive: boolean;
   }>) => api.patch<RepairCategory>(`/categories/${id}`, data),

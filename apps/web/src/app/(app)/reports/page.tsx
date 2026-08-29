@@ -43,6 +43,7 @@ import {
   applianceApi,
   centerApi,
   missionApi,
+  categoryApi,
   type VehicleLog,
   type VehicleSummary,
   type KitchenLog,
@@ -51,6 +52,7 @@ import {
   type ApplianceSummary,
   type Center,
   type Mission,
+  type RepairCategory,
 } from '@/lib/api';
 import { AppliancePrintLayout } from './appliance-print-layout';
 import { VehiclePrintLayout } from './vehicle-print-layout';
@@ -93,6 +95,7 @@ function ReportsPageContent() {
   const [activeReportTab, setActiveReportTab] = useState<'appliances' | 'vehicles' | 'kitchen' | 'all'>('appliances');
   const [centers, setCenters] = useState<Center[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [categories, setCategories] = useState<RepairCategory[]>([]);
 
   const [selectedCenterId, setSelectedCenterId] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,27 +173,35 @@ function ReportsPageContent() {
     totalRelief: 0,
   });
 
-  // Fetch Centers & Missions
+  // Fetch Centers, Missions, & Categories
   useEffect(() => {
-    Promise.all([centerApi.getAll(), missionApi.getAll()]).then(([cRes, mRes]) => {
+    Promise.all([centerApi.getAll(), missionApi.getAll(), categoryApi.getAll()]).then(([cRes, mRes, catRes]) => {
       const cList = Array.isArray(cRes.data) ? cRes.data : [];
       const mList = Array.isArray(mRes.data) ? mRes.data : [];
+      const catList = Array.isArray(catRes.data) ? catRes.data : [];
       setCenters(cList);
       setMissions(mList);
+      setCategories(catList);
 
       const defaultCenter = !isSuperAdmin && userCenterId ? userCenterId : (cList[0]?.id || '');
       const defaultMission = mList.find((m) => m.isActive)?.id || mList[0]?.id || '';
+      const appRate = getApplianceRate('พัดลม', catList);
+      const vehRate = getVehicleRate('รถจักรยานยนต์', catList);
 
       setApplianceFormData((prev) => ({
         ...prev,
         centerId: defaultCenter,
         missionId: defaultMission,
+        budgetPerUnit: appRate,
+        totalBudget: appRate,
       }));
 
       setVehicleFormData((prev) => ({
         ...prev,
         centerId: defaultCenter,
         missionId: defaultMission,
+        budgetPerUnit: vehRate,
+        totalBudget: vehRate,
       }));
     });
   }, [isSuperAdmin, userCenterId]);
@@ -323,7 +334,7 @@ function ReportsPageContent() {
     const defaultCenter = !isSuperAdmin && userCenterId ? userCenterId : (centers[0]?.id || '');
     const defaultMission = missions.find((m) => m.isActive)?.id || missions[0]?.id || '';
 
-    const stdRate = getApplianceRate('พัดลม');
+    const stdRate = getApplianceRate('พัดลม', categories);
     setApplianceFormData({
       missionId: defaultMission,
       centerId: defaultCenter,
@@ -347,7 +358,7 @@ function ReportsPageContent() {
     setEditingApplianceId(item.id);
     const sCount = Number(item.serviceCount) || 1;
     const cCount = Number(item.completedCount) || sCount;
-    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : getApplianceRate(item.applianceType);
+    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : getApplianceRate(item.applianceType, categories);
     const bTotal = item.totalBudget ? Number(item.totalBudget) : bPerUnit * sCount;
 
     setApplianceFormData({
@@ -435,7 +446,7 @@ function ReportsPageContent() {
     setEditingVehicleId(null);
     const defaultCenter = !isSuperAdmin && userCenterId ? userCenterId : (centers[0]?.id || '');
     const defaultMission = missions.find((m) => m.isActive)?.id || missions[0]?.id || '';
-    const stdRate = getVehicleRate('รถจักรยานยนต์');
+    const stdRate = getVehicleRate('รถจักรยานยนต์', categories);
 
     setVehicleFormData({
       missionId: defaultMission,
@@ -460,7 +471,7 @@ function ReportsPageContent() {
     setEditingVehicleId(item.id);
     const sCount = Number(item.serviceCount) || 1;
     const cCount = Number(item.completedCount) || sCount;
-    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : getVehicleRate(item.vehicleType);
+    const bPerUnit = item.budgetPerUnit ? Number(item.budgetPerUnit) : getVehicleRate(item.vehicleType, categories);
     const bTotal = item.totalBudget ? Number(item.totalBudget) : bPerUnit * sCount;
 
     setVehicleFormData({
@@ -1439,9 +1450,16 @@ function ReportsPageContent() {
               <div className="flex gap-2">
                 <Select
                   value={applianceFormData.applianceType}
-                  onValueChange={(val) =>
-                    setApplianceFormData({ ...applianceFormData, applianceType: val })
-                  }
+                  onValueChange={(val) => {
+                    const sRate = applianceFormData.useStandardRate ? getApplianceRate(val, categories) : applianceFormData.budgetPerUnit;
+                    const sCount = Number(applianceFormData.serviceCount || 1);
+                    setApplianceFormData({
+                      ...applianceFormData,
+                      applianceType: val,
+                      budgetPerUnit: sRate,
+                      totalBudget: sRate * sCount,
+                    });
+                  }}
                 >
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="เลือกประเภท" />
@@ -1457,9 +1475,17 @@ function ReportsPageContent() {
                 <Input
                   placeholder="หรือพิมพ์ระบุเอง"
                   value={applianceFormData.applianceType}
-                  onChange={(e) =>
-                    setApplianceFormData({ ...applianceFormData, applianceType: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const sRate = applianceFormData.useStandardRate ? getApplianceRate(val, categories) : applianceFormData.budgetPerUnit;
+                    const sCount = Number(applianceFormData.serviceCount || 1);
+                    setApplianceFormData({
+                      ...applianceFormData,
+                      applianceType: val,
+                      budgetPerUnit: sRate,
+                      totalBudget: sRate * sCount,
+                    });
+                  }}
                   className="flex-1"
                 />
               </div>
@@ -1509,7 +1535,7 @@ function ReportsPageContent() {
                   checked={applianceFormData.useStandardRate}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    const sRate = checked ? getApplianceRate(applianceFormData.applianceType) : applianceFormData.budgetPerUnit;
+                    const sRate = checked ? getApplianceRate(applianceFormData.applianceType, categories) : applianceFormData.budgetPerUnit;
                     const sCount = Number(applianceFormData.serviceCount || 1);
                     setApplianceFormData((prev) => ({
                       ...prev,
@@ -1520,7 +1546,7 @@ function ReportsPageContent() {
                   }}
                   className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
                 />
-                <span>✓ ใช้อัตรามาตรฐานในการคำนวณ ({getApplianceRate(applianceFormData.applianceType)} บาท/ชิ้น)</span>
+                <span>✓ ใช้อัตรามาตรฐานในการคำนวณ ({getApplianceRate(applianceFormData.applianceType, categories)} บาท/ชิ้น)</span>
               </label>
               <Button
                 type="button"
@@ -1657,9 +1683,16 @@ function ReportsPageContent() {
               <div className="flex gap-2">
                 <Select
                   value={vehicleFormData.vehicleType}
-                  onValueChange={(val) =>
-                    setVehicleFormData({ ...vehicleFormData, vehicleType: val })
-                  }
+                  onValueChange={(val) => {
+                    const sRate = vehicleFormData.useStandardRate ? getVehicleRate(val, categories) : vehicleFormData.budgetPerUnit;
+                    const sCount = Number(vehicleFormData.serviceCount || 1);
+                    setVehicleFormData({
+                      ...vehicleFormData,
+                      vehicleType: val,
+                      budgetPerUnit: sRate,
+                      totalBudget: sRate * sCount,
+                    });
+                  }}
                 >
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="เลือกประเภท" />
@@ -1675,9 +1708,17 @@ function ReportsPageContent() {
                 <Input
                   placeholder="หรือพิมพ์ระบุเอง"
                   value={vehicleFormData.vehicleType}
-                  onChange={(e) =>
-                    setVehicleFormData({ ...vehicleFormData, vehicleType: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const sRate = vehicleFormData.useStandardRate ? getVehicleRate(val, categories) : vehicleFormData.budgetPerUnit;
+                    const sCount = Number(vehicleFormData.serviceCount || 1);
+                    setVehicleFormData({
+                      ...vehicleFormData,
+                      vehicleType: val,
+                      budgetPerUnit: sRate,
+                      totalBudget: sRate * sCount,
+                    });
+                  }}
                   className="flex-1"
                 />
               </div>
@@ -1727,7 +1768,7 @@ function ReportsPageContent() {
                   checked={vehicleFormData.useStandardRate}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    const sRate = checked ? getVehicleRate(vehicleFormData.vehicleType) : vehicleFormData.budgetPerUnit;
+                    const sRate = checked ? getVehicleRate(vehicleFormData.vehicleType, categories) : vehicleFormData.budgetPerUnit;
                     const sCount = Number(vehicleFormData.serviceCount || 1);
                     setVehicleFormData((prev) => ({
                       ...prev,
@@ -1738,7 +1779,7 @@ function ReportsPageContent() {
                   }}
                   className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                 />
-                <span>✓ ใช้อัตรามาตรฐานในการคำนวณ ({getVehicleRate(vehicleFormData.vehicleType)} บาท/คัน)</span>
+                <span>✓ ใช้อัตรามาตรฐานในการคำนวณ ({getVehicleRate(vehicleFormData.vehicleType, categories)} บาท/คัน)</span>
               </label>
               <Button
                 type="button"

@@ -78,6 +78,15 @@ export function StandardRatesModal({
           <DialogDescription className="text-xs text-slate-500">
             กำหนดอัตราประมาณการค่าใช้จ่ายเฉลี่ยต่อชิ้น/คัน เพื่อนำไปคำนวณในรายงานอัตโนมัติ
           </DialogDescription>
+          <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 mt-2 flex items-center justify-between text-xs text-amber-900">
+            <span>💡 สามารถกำหนดงบประมาณมาตรฐานแยกตามประเภทงาน/บริการได้ที่ระบบจัดการ</span>
+            <a
+              href="/fixitcenter/admin"
+              className="bg-brand-orange text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-brand-orange-dark whitespace-nowrap ml-2 shrink-0"
+            >
+              ไปที่ระบบจัดการ Admin →
+            </a>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSave} className="space-y-4 pt-1">

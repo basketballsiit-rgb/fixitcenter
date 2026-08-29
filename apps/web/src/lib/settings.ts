@@ -55,17 +55,52 @@ export function saveStandardRates(rates: Partial<StandardRatesConfig>): Standard
   }
 }
 
-export function getVehicleRate(vehicleType?: string): number {
+export function getRateFromCategoryList(
+  nameOrCode?: string,
+  categories?: Array<{ code: string; name: string; standardBudget?: number | null }>,
+  defaultFallback?: number
+): number | null {
+  if (!nameOrCode || !categories || categories.length === 0) return null;
+  const match = categories.find(
+    (c) =>
+      c.code.toLowerCase() === nameOrCode.toLowerCase() ||
+      c.name.toLowerCase() === nameOrCode.toLowerCase() ||
+      nameOrCode.toLowerCase().includes(c.name.toLowerCase()) ||
+      c.name.toLowerCase().includes(nameOrCode.toLowerCase())
+  );
+  if (match && typeof match.standardBudget === 'number' && match.standardBudget > 0) {
+    return Number(match.standardBudget);
+  }
+  return defaultFallback ?? null;
+}
+
+export function getVehicleRate(
+  vehicleType?: string,
+  categories?: Array<{ code: string; name: string; standardBudget?: number | null }>
+): number {
+  if (categories && categories.length > 0) {
+    const found = getRateFromCategoryList(vehicleType, categories);
+    if (found !== null) return found;
+  }
+
   const rates = getStandardRates();
   if (!vehicleType) return rates.vehicleDefaultRate;
   const lower = vehicleType.toLowerCase();
   if (lower.includes('จักรยานยนต์') || lower.includes('มอเตอร์ไซค์')) return rates.motorcycleRate;
   if (lower.includes('ยนต์') || lower.includes('รถยนต์') || lower.includes('กระบะ')) return rates.carRate;
-  if (lower.includes('เกษตร') || lower.includes('เครื่องยนต์')) return rates.agriEngineRate;
+  if (lower.includes('เกษตร') || lower.includes('เครื่องยนต์') || lower.includes('ตัดหญ้า')) return rates.agriEngineRate;
   return rates.vehicleDefaultRate;
 }
 
-export function getApplianceRate(applianceType?: string): number {
+export function getApplianceRate(
+  applianceType?: string,
+  categories?: Array<{ code: string; name: string; standardBudget?: number | null }>
+): number {
+  if (categories && categories.length > 0) {
+    const found = getRateFromCategoryList(applianceType, categories);
+    if (found !== null) return found;
+  }
+
   const rates = getStandardRates();
   if (!applianceType) return rates.applianceDefaultRate;
   const lower = applianceType.toLowerCase();

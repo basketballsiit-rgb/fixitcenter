@@ -158,7 +158,7 @@ export class VehicleLogsService {
     }> = {};
 
     for (const order of orders) {
-      const d = new Date(order.registeredAt || order.createdAt);
+      const d = new Date(order.registeredAt || (order as any).createdAt || Date.now());
       const dateStr = d.toISOString().split('T')[0];
       const vType = order.deviceCategory || 'รถจักรยานยนต์';
       const key = `${dateStr}_${order.centerId}_${vType}`;

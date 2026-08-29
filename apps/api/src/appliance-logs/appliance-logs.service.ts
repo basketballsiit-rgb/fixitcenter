@@ -158,7 +158,7 @@ export class ApplianceLogsService {
     }> = {};
 
     for (const order of orders) {
-      const d = new Date(order.registeredAt || order.createdAt);
+      const d = new Date(order.registeredAt || (order as any).createdAt || Date.now());
       const dateStr = d.toISOString().split('T')[0];
       const appType = order.deviceCategory || 'เครื่องใช้ไฟฟ้าทั่วไป';
       const key = `${dateStr}_${order.centerId}_${appType}`;

@@ -88,6 +88,7 @@ function AdminConsoleContent() {
     code: '',
     name: '',
     tradeCode: 'ELECTRICAL' as 'ELECTRICAL' | 'ELECTRONICS' | 'AUTOMOTIVE' | 'KITCHEN',
+    standardBudget: 100,
     description: '',
     isActive: true,
   });
@@ -393,12 +394,14 @@ function AdminConsoleContent() {
 
   const handleOpenCreateCategory = () => {
     setEditingCategory(null);
-    const initialTrade = 'ELECTRICAL';
+    const initialTrade = tradeFilter === 'ALL' ? 'ELECTRICAL' : tradeFilter;
     const nextCode = computeNextCategoryCode(initialTrade, categories);
+    const defaultBudget = initialTrade === 'AUTOMOTIVE' ? 300 : initialTrade === 'KITCHEN' ? 50 : 100;
     setCategoryForm({
       code: nextCode,
       name: '',
       tradeCode: initialTrade,
+      standardBudget: defaultBudget,
       description: '',
       isActive: true,
     });
@@ -406,9 +409,10 @@ function AdminConsoleContent() {
   };
 
   const handleTradeChangeInModal = (trade: 'ELECTRICAL' | 'ELECTRONICS' | 'AUTOMOTIVE' | 'KITCHEN') => {
+    const defaultBudget = trade === 'AUTOMOTIVE' ? 300 : trade === 'KITCHEN' ? 50 : 100;
     if (!editingCategory) {
       const nextCode = computeNextCategoryCode(trade, categories);
-      setCategoryForm((prev) => ({ ...prev, tradeCode: trade, code: nextCode }));
+      setCategoryForm((prev) => ({ ...prev, tradeCode: trade, code: nextCode, standardBudget: defaultBudget }));
     } else {
       setCategoryForm((prev) => ({ ...prev, tradeCode: trade }));
     }
@@ -420,6 +424,7 @@ function AdminConsoleContent() {
       code: cat.code,
       name: cat.name,
       tradeCode: cat.tradeCode,
+      standardBudget: cat.standardBudget ?? 100,
       description: cat.description || '',
       isActive: cat.isActive,
     });
@@ -888,9 +893,10 @@ function AdminConsoleContent() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50">
-                      <TableHead className="w-24">รหัส</TableHead>
+                      <TableHead className="w-20">รหัส</TableHead>
                       <TableHead>ชื่อประเภทงาน / ชนิดอุปกรณ์ / บริการ</TableHead>
                       <TableHead>สาขาวิชา / แผนก</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">งบประมาณมาตรฐาน</TableHead>
                       <TableHead>คำอธิบาย / ตัวอย่างรายละเอียด</TableHead>
                       <TableHead className="text-center">สถานะ</TableHead>
                       <TableHead className="text-right">จัดการ</TableHead>
@@ -898,9 +904,9 @@ function AdminConsoleContent() {
                   </TableHeader>
                   <TableBody>
                     {loadingCategories ? (
-                      <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">กำลังโหลดรายการประเภทงานซ่อมและบริการ...</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">กำลังโหลดรายการประเภทงานซ่อมและบริการ...</TableCell></TableRow>
                     ) : filteredCategories.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">ไม่พบรายการประเภทงานซ่อมและบริการ</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">ไม่พบรายการประเภทงานซ่อมและบริการ</TableCell></TableRow>
                     ) : (
                       filteredCategories.map((cat) => {
                         const tradeBadge =
@@ -922,6 +928,17 @@ function AdminConsoleContent() {
                             </Badge>
                           );
 
+                        const unitLabel =
+                          cat.tradeCode === 'AUTOMOTIVE'
+                            ? 'คัน'
+                            : cat.tradeCode === 'KITCHEN'
+                            ? cat.name.includes('น้ำ')
+                              ? 'ขวด'
+                              : cat.name.includes('ถุง')
+                              ? 'ชุด'
+                              : 'กล่อง'
+                            : 'เครื่อง';
+
                         return (
                           <TableRow key={cat.id} className="hover:bg-slate-50/80">
                             <TableCell className="font-mono font-bold text-xs text-brand-navy">
@@ -931,6 +948,11 @@ function AdminConsoleContent() {
                               {cat.name}
                             </TableCell>
                             <TableCell>{tradeBadge}</TableCell>
+                            <TableCell className="text-right font-mono font-bold text-xs text-emerald-700 whitespace-nowrap">
+                              <span className="bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md shadow-xs">
+                                💰 {Number(cat.standardBudget ?? 100).toLocaleString()} ฿ / {unitLabel}
+                              </span>
+                            </TableCell>
                             <TableCell className="text-xs text-slate-600 max-w-xs truncate">
                               {cat.description || '-'}
                             </TableCell>
@@ -946,10 +968,10 @@ function AdminConsoleContent() {
                               )}
                             </TableCell>
                             <TableCell className="text-right space-x-1">
-                              <Button variant="ghost" size="sm" onClick={() => handleOpenEditCategory(cat)} className="h-8 w-8 p-0">
+                              <Button variant="ghost" size="sm" onClick={() => handleOpenEditCategory(cat)} className="h-8 w-8 p-0" title="แก้ไข">
                                 <Edit2 className="h-4 w-4 text-blue-600" />
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat)} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50">
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat)} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" title="ลบ">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </TableCell>
@@ -1356,6 +1378,135 @@ function AdminConsoleContent() {
                     onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
                     placeholder="เช่น เตาแม่เหล็กไฟฟ้า, โดรนการเกษตร"
                   />
+                </div>
+              </div>
+
+              {/* Standard Unit Budget Rate */}
+              <div className="space-y-2 bg-emerald-50/60 p-3 rounded-xl border border-emerald-200/80">
+                <div className="flex items-center justify-between">
+                  <Label className="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
+                    💰 อัตราค่าใช้จ่ายมาตรฐานต่อหน่วย (บาท) *
+                  </Label>
+                  <span className="text-[11px] text-emerald-700 font-medium">
+                    {categoryForm.tradeCode === 'AUTOMOTIVE'
+                      ? 'บาท / คัน'
+                      : categoryForm.tradeCode === 'KITCHEN'
+                      ? 'บาท / กล่อง/หน่วย'
+                      : 'บาท / เครื่อง'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    required
+                    value={categoryForm.standardBudget}
+                    onChange={(e) =>
+                      setCategoryForm({
+                        ...categoryForm,
+                        standardBudget: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="font-mono font-bold text-sm text-emerald-900 bg-white border-emerald-300 pl-8 h-10"
+                    placeholder="100"
+                  />
+                  <span className="absolute left-3 top-2.5 text-xs text-emerald-600 font-bold">฿</span>
+                </div>
+                {/* Preset quick buttons */}
+                <div className="flex flex-wrap items-center gap-1 pt-1">
+                  <span className="text-[10px] text-emerald-800 font-semibold">อัตรามาตรฐานแนะนำ:</span>
+                  {categoryForm.tradeCode === 'AUTOMOTIVE' ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 300 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        300 ฿ (จยย.)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 350 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        350 ฿ (เครื่องยนต์เกษตร)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 500 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        500 ฿ (รถยนต์)
+                      </Button>
+                    </>
+                  ) : categoryForm.tradeCode === 'KITCHEN' ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 7 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        7 ฿ (น้ำดื่ม)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 50 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        50 ฿ (ข้าวกล่อง)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 500 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        500 ฿ (ถุงยังชีพ)
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 100 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        100 ฿ (พัดลม/หม้อหุงข้าว)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 150 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        150 ฿ (ทั่วไป)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, standardBudget: 200 })}
+                        className="h-6 text-[10px] px-2 bg-white hover:bg-emerald-100 border-emerald-300 text-emerald-800"
+                      >
+                        200 ฿ (วิชาชีพ/ตู้เย็น/แอร์/ทีวี)
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 
