@@ -32,6 +32,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { cn, formatNationalId, formatPhone } from '@/lib/utils';
 import { PrintLayout } from './print-layout';
 import { PrintTagLayout } from './print-tag-layout';
+import { scanIdCardImage, isValidThaiNationalId } from '@/lib/ocr';
 
 const formSchema = z.object({
   missionId: z.string().min(1, 'เลือกภารกิจ'),
@@ -107,6 +108,20 @@ function RegistrationPageContent() {
   const idCardVideoRef = useRef<HTMLVideoElement>(null);
   const idCardStreamRef = useRef<MediaStream | null>(null);
   const idCardFileInputRef = useRef<HTMLInputElement>(null);
+
+  // AI OCR Processing & Verification States
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrProgressText, setOcrProgressText] = useState('');
+  const [ocrProgressPercent, setOcrProgressPercent] = useState(0);
+  const [ocrReviewData, setOcrReviewData] = useState<{
+    nationalId: string;
+    firstName: string;
+    lastName: string;
+    address: string;
+    rawText: string;
+    cardImage?: string;
+  } | null>(null);
+  const [showOcrReviewModal, setShowOcrReviewModal] = useState(false);
 
   // Device Condition Photo State
   const [deviceImage, setDeviceImage] = useState<string | null>(null);
@@ -311,21 +326,76 @@ function RegistrationPageContent() {
     setShowCamera(false);
   };
 
-  const capturePhoto = () => {
+  // ── AI OCR Processing Core ──
+  const processOcrOnImage = async (canvasOrBase64: HTMLCanvasElement | string, cardImageBase64?: string) => {
+    setOcrLoading(true);
+    setOcrProgressPercent(10);
+    setOcrProgressText('กำลังเตรียมประมวลผล OCR...');
+    try {
+      const extracted = await scanIdCardImage(canvasOrBase64, (pct, status) => {
+        setOcrProgressPercent(pct);
+        setOcrProgressText(status);
+      });
+
+      if (cardImageBase64) {
+        setIdCardImage(cardImageBase64);
+      }
+
+      setOcrReviewData({
+        nationalId: extracted.nationalId,
+        firstName: extracted.firstName,
+        lastName: extracted.lastName,
+        address: extracted.address,
+        rawText: extracted.rawText,
+        cardImage: cardImageBase64,
+      });
+
+      // Auto-fill fields if extracted
+      if (extracted.nationalId || extracted.firstName) {
+        if (extracted.nationalId) setValue('nationalId', extracted.nationalId);
+        if (extracted.firstName) setValue('firstName', extracted.firstName);
+        if (extracted.lastName) setValue('lastName', extracted.lastName);
+        if (extracted.address) setValue('address', extracted.address);
+
+        toast({
+          title: '✓ ดึงข้อมูลบัตรประชาชนด้วย AI OCR สำเร็จ',
+          description: `${extracted.firstName || ''} ${extracted.lastName || ''} (${extracted.nationalId || 'อ่านข้อความแล้ว'})`,
+        });
+      } else {
+        toast({
+          title: '⚠️ ไม่พบข้อมูลที่ชัดเจนจากภาพถ่าย',
+          description: 'สามารถตรวจสอบข้อความที่อ่านได้ และกรอกข้อมูลเพิ่มเติมได้ในหน้าต่างสรุปผล',
+          variant: 'destructive',
+        });
+      }
+
+      setShowOcrReviewModal(true);
+    } catch (err: any) {
+      console.error('OCR Error:', err);
+      toast({
+        title: 'เกิดข้อผิดพลาดในการประมวลผล OCR',
+        description: 'กรุณากรอกข้อมูลด้วยตนเอง หรือลองถ่ายภาพที่มีแสงสว่างชัดเจนอีกครั้ง',
+        variant: 'destructive',
+      });
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
+  const capturePhoto = async () => {
     if (!videoRef.current) return;
     const canvas = document.createElement('canvas');
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
-    canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
-    const mockCard = {
-      nationalId: '1550100123999',
-      firstName: 'นิพนธ์',
-      lastName: 'ร่องพืช',
-      phone: '0812345678',
-      address: 'ต.ในเวียง อ.เมือง จ.น่าน',
-    };
-    handleSmartCardData(mockCard);
-    stopCamera();
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0);
+      const base64 = canvas.toDataURL('image/jpeg', 0.9);
+      stopCamera();
+      await processOcrOnImage(canvas, base64);
+    } else {
+      stopCamera();
+    }
   };
 
   // Citizen ID Card Camera & File Upload
@@ -351,7 +421,7 @@ function RegistrationPageContent() {
     setShowIdCardCamera(false);
   };
 
-  const captureIdCardPhoto = () => {
+  const captureIdCardPhoto = async () => {
     if (!idCardVideoRef.current) return;
     const canvas = document.createElement('canvas');
     canvas.width = idCardVideoRef.current.videoWidth;
@@ -359,11 +429,14 @@ function RegistrationPageContent() {
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(idCardVideoRef.current, 0, 0);
-      const base64 = canvas.toDataURL('image/jpeg', 0.85);
+      const base64 = canvas.toDataURL('image/jpeg', 0.9);
       setIdCardImage(base64);
-      toast({ title: '✓ ถ่ายภาพบัตรประชาชนเรียบร้อยแล้ว' });
+      stopIdCardCamera();
+      toast({ title: '✓ ถ่ายภาพบัตรประชาชนเรียบร้อยแล้ว กำลังเริ่มอ่านข้อมูล OCR...' });
+      await processOcrOnImage(canvas, base64);
+    } else {
+      stopIdCardCamera();
     }
-    stopIdCardCamera();
   };
 
   const handleIdCardFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -373,17 +446,18 @@ function RegistrationPageContent() {
     reader.onload = (event) => {
       const result = event.target?.result as string;
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 900;
+        const MAX_WIDTH = 1400;
         const scale = Math.min(1, MAX_WIDTH / img.width);
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.9);
         setIdCardImage(compressedBase64);
-        toast({ title: '✓ อัปโหลดภาพบัตรประชาชนสำเร็จ' });
+        toast({ title: '✓ อัปโหลดภาพบัตรประชาชนสำเร็จ กำลังอ่านข้อมูล OCR...' });
+        await processOcrOnImage(canvas, compressedBase64);
       };
       img.src = result;
     };
@@ -1030,59 +1104,279 @@ function RegistrationPageContent() {
           {/* Card Reader Simulator & Camera OCR Component */}
           <SmartCardReader onDataReceived={handleSmartCardData} onScanPhoto={startCamera} />
 
-          {/* OCR Camera Stream Modal */}
+          {/* OCR Camera Stream Modal (Quick Scan & Extract) */}
           {showCamera && (
-            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl p-4 max-w-md w-full space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base flex items-center gap-2">
-                    <Camera className="w-5 h-5 text-blue-600" />
-                    สแกนบัตรประชาชน (OCR)
-                  </h3>
-                  <Button size="icon" variant="ghost" onClick={stopCamera}>
-                    <CameraOff className="w-4 h-4" />
+            <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl p-5 max-w-lg w-full space-y-4 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-200">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base text-slate-900 leading-tight">
+                        สแกนบัตรประชาชนด้วย AI OCR
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        วางบัตรประชาชนให้อยู่ในกรอบภาพ และมีแสงสว่างชัดเจน
+                      </p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" onClick={stopCamera} className="rounded-full hover:bg-slate-100">
+                    <CameraOff className="w-5 h-5 text-slate-500" />
                   </Button>
                 </div>
-                <div className="relative aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center">
+
+                {/* Camera Viewport with Thai ID Card Framing Overlay */}
+                <div className="relative aspect-[16/10] bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center shadow-inner">
                   <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                  <div className="absolute inset-4 border-2 border-dashed border-white/70 rounded pointer-events-none" />
+                  
+                  {/* Guided ID Card Outline (8.5:5.4 ratio) */}
+                  <div className="absolute inset-x-8 inset-y-6 border-2 border-dashed border-amber-400/90 rounded-lg pointer-events-none flex flex-col justify-between p-2.5 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] bg-amber-500/90 text-slate-950 font-bold px-1.5 py-0.5 rounded shadow-xs">
+                        กรอบบัตรประชาชน
+                      </span>
+                      <span className="text-[10px] text-amber-200 font-mono">
+                        13 หลัก
+                      </span>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[11px] text-amber-200 font-medium bg-black/50 px-2 py-0.5 rounded-full inline-block backdrop-blur-xs">
+                        ✨ ถือกล้องให้นิ่งและวางบัตรให้อยู่ในกรอบ
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={stopCamera}>ยกเลิก</Button>
-                  <Button onClick={capturePhoto} className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 font-semibold">
-                    <Camera className="w-4 h-4" /> ถ่ายและสแกน
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-slate-500">
+                    💡 ระบบจะอ่านเลข 13 หลัก, ชื่อ-นามสกุล และที่อยู่โดยอัตโนมัติ
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={stopCamera}>
+                      ยกเลิก
+                    </Button>
+                    <Button
+                      onClick={capturePhoto}
+                      className="bg-blue-600 hover:bg-blue-700 text-white gap-2 font-bold shadow-md"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>ถ่ายและสแกน OCR</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Citizen ID Card Photo Stream Modal (Attach Copy) */}
+          {showIdCardCamera && (
+            <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl p-5 max-w-lg w-full space-y-4 shadow-2xl border border-slate-200">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base text-slate-900 leading-tight">
+                        ถ่ายภาพสำเนาบัตรประชาชน + สแกน OCR
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        บันทึกภาพหลักฐานผู้รับบริการ และอ่านข้อมูลอัตโนมัติ
+                      </p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" onClick={stopIdCardCamera} className="rounded-full hover:bg-slate-100">
+                    <CameraOff className="w-5 h-5 text-slate-500" />
+                  </Button>
+                </div>
+
+                <div className="relative aspect-[16/10] bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center shadow-inner">
+                  <video ref={idCardVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                  <div className="absolute inset-x-8 inset-y-6 border-2 border-dashed border-emerald-400/90 rounded-lg pointer-events-none flex flex-col justify-between p-2.5 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+                    <span className="text-[10px] bg-emerald-500 text-slate-950 font-bold px-1.5 py-0.5 rounded self-start">
+                      วางบัตรให้พอดีกรอบ
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" onClick={stopIdCardCamera}>
+                    ยกเลิก
+                  </Button>
+                  <Button
+                    onClick={captureIdCardPhoto}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold shadow-md"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>บันทึกภาพบัตร & อ่าน OCR</span>
                   </Button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Citizen ID Card Photo Stream Modal */}
-          {showIdCardCamera && (
-            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl p-4 max-w-md w-full space-y-4 shadow-2xl">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base flex items-center gap-2">
-                    <Camera className="w-5 h-5 text-emerald-600" />
-                    ถ่ายภาพสำเนาบัตรประชาชนผู้รับบริการ
-                  </h3>
-                  <Button size="icon" variant="ghost" onClick={stopIdCardCamera}>
-                    <CameraOff className="w-4 h-4" />
-                  </Button>
+          {/* ── AI OCR Loading Progress Modal ── */}
+          {ocrLoading && (
+            <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl text-center">
+                <div className="w-16 h-16 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center mx-auto text-blue-600 animate-pulse">
+                  <Sparkles className="w-8 h-8 animate-spin" />
                 </div>
-                <div className="relative aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                  <video ref={idCardVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                  <div className="absolute inset-4 border-2 border-dashed border-emerald-400/80 rounded pointer-events-none" />
+                <div className="space-y-1.5">
+                  <h4 className="font-extrabold text-base text-slate-900">
+                    กำลังอ่านข้อมูลบัตรประชาชนด้วย AI OCR
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    {ocrProgressText || 'กำลังประมวลผล...'}
+                  </p>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={stopIdCardCamera}>ยกเลิก</Button>
-                  <Button onClick={captureIdCardPhoto} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold">
-                    <Camera className="w-4 h-4" /> บันทึกภาพบัตร
-                  </Button>
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-blue-600 h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${ocrProgressPercent}%` }}
+                  />
                 </div>
+                <span className="text-[11px] font-mono text-slate-400 block">
+                  {ocrProgressPercent}%
+                </span>
               </div>
             </div>
           )}
+
+          {/* ── AI OCR Result Review / Verification Modal ── */}
+          <Dialog open={showOcrReviewModal} onOpenChange={setShowOcrReviewModal}>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-blue-700">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  <span>ผลการอ่านข้อมูลบัตรประชาชน (OCR)</span>
+                </DialogTitle>
+                <DialogDescription>
+                  ตรวจสอบความถูกต้องของข้อมูลที่ดึงได้จากภาพถ่าย สามารถแก้ไขก่อนยืนยันได้
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3.5 py-2">
+                {/* Captured Card Thumbnail */}
+                {ocrReviewData?.cardImage && (
+                  <div className="rounded-lg overflow-hidden border border-slate-200 max-h-36 bg-slate-100 flex items-center justify-center">
+                    <img
+                      src={ocrReviewData.cardImage}
+                      alt="Captured ID Card"
+                      className="max-h-36 w-full object-contain"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-700">
+                    เลขประจำตัวประชาชน (13 หลัก) *
+                  </Label>
+                  <Input
+                    value={ocrReviewData?.nationalId || ''}
+                    maxLength={13}
+                    placeholder="x-xxxx-xxxxx-xx-x"
+                    onChange={(e) =>
+                      setOcrReviewData((prev: any) => ({
+                        ...prev,
+                        nationalId: e.target.value.replace(/\D/g, ''),
+                      }))
+                    }
+                    className="font-mono text-sm tracking-wider font-bold text-blue-900 bg-blue-50/50"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700">ชื่อจริง *</Label>
+                    <Input
+                      value={ocrReviewData?.firstName || ''}
+                      placeholder="ชื่อ"
+                      onChange={(e) =>
+                        setOcrReviewData((prev: any) => ({
+                          ...prev,
+                          firstName: e.target.value,
+                        }))
+                      }
+                      className="text-sm font-semibold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700">นามสกุล *</Label>
+                    <Input
+                      value={ocrReviewData?.lastName || ''}
+                      placeholder="นามสกุล"
+                      onChange={(e) =>
+                        setOcrReviewData((prev: any) => ({
+                          ...prev,
+                          lastName: e.target.value,
+                        }))
+                      }
+                      className="text-sm font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-700">ที่อยู่ตามบัตรประชาชน</Label>
+                  <textarea
+                    value={ocrReviewData?.address || ''}
+                    rows={2}
+                    placeholder="บ้านเลขที่ หมู่ ตำบล อำเภอ จังหวัด"
+                    onChange={(e) =>
+                      setOcrReviewData((prev: any) => ({
+                        ...prev,
+                        address: e.target.value,
+                      }))
+                    }
+                    className="flex min-h-[50px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                  />
+                </div>
+
+                {/* Raw OCR Text toggle if needed */}
+                {ocrReviewData?.rawText && (
+                  <details className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    <summary className="cursor-pointer font-semibold text-slate-600">
+                      📄 ดูข้อความดิบทั้งหมดที่ AI อ่านได้จากภาพ (Raw Text)
+                    </summary>
+                    <pre className="mt-1.5 whitespace-pre-wrap font-mono text-[10px] text-slate-700 bg-white p-2 rounded border max-h-24 overflow-y-auto">
+                      {ocrReviewData.rawText}
+                    </pre>
+                  </details>
+                )}
+              </div>
+
+              <DialogFooter className="gap-2 pt-2 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowOcrReviewModal(false)}
+                >
+                  ปิด
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (ocrReviewData) {
+                      if (ocrReviewData.nationalId) setValue('nationalId', ocrReviewData.nationalId);
+                      if (ocrReviewData.firstName) setValue('firstName', ocrReviewData.firstName);
+                      if (ocrReviewData.lastName) setValue('lastName', ocrReviewData.lastName);
+                      if (ocrReviewData.address) setValue('address', ocrReviewData.address);
+                      toast({ title: '✓ นำข้อมูลที่ตรวจสอบแล้วไปใส่ในแบบฟอร์มเรียบร้อย' });
+                    }
+                    setShowOcrReviewModal(false);
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-md"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>✓ ใช้งานข้อมูลนี้ในแบบฟอร์ม</span>
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Device Photo Stream Modal */}
           {showDeviceCamera && (
