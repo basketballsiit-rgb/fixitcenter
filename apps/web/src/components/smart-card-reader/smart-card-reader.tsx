@@ -15,6 +15,7 @@ interface SmartCardData {
 interface SmartCardReaderProps {
   onDataReceived: (data: SmartCardData) => void;
   onScanPhoto?: () => void;
+  onUploadPhoto?: () => void;
 }
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'simulating' | 'error';
@@ -25,7 +26,7 @@ const MOCK_CARD_DATA: SmartCardData[] = [
   { nationalId: '3550400567890', firstName: 'วิชัย', lastName: 'พัฒนา', address: '45/3 หมู่ 1 ต.ดู่ใต้ อ.เมืองน่าน จ.น่าน' },
 ];
 
-export function SmartCardReader({ onDataReceived, onScanPhoto }: SmartCardReaderProps) {
+export function SmartCardReader({ onDataReceived, onScanPhoto, onUploadPhoto }: SmartCardReaderProps) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [logs, setLogs] = useState<string[]>(['[System] Smart Card Reader พร้อมใช้งาน']);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -144,6 +145,11 @@ export function SmartCardReader({ onDataReceived, onScanPhoto }: SmartCardReader
         {onScanPhoto && (
           <Button onClick={onScanPhoto} size="sm" variant="outline" className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
             📷 สแกนบัตรด้วยกล้อง (OCR)
+          </Button>
+        )}
+        {onUploadPhoto && (
+          <Button onClick={onUploadPhoto} size="sm" variant="outline" className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+            📁 ถ่ายรูป/อัปโหลดภาพบัตร
           </Button>
         )}
       </div>

@@ -313,6 +313,16 @@ function RegistrationPageContent() {
 
   // OCR Camera Handlers
   const startCamera = async () => {
+    // Check if getUserMedia is supported (WebRTC requires HTTPS or localhost)
+    if (typeof navigator === 'undefined' || !navigator?.mediaDevices?.getUserMedia) {
+      toast({
+        title: '📷 เปิดกล้องถ่ายภาพบนอุปกรณ์',
+        description: 'เนื่องจากกำลังใช้งานผ่าน HTTP เบราว์เซอร์จึงเปิดกล้องของอุปกรณ์ให้โดยอัตโนมัติ',
+      });
+      idCardFileInputRef.current?.click();
+      return;
+    }
+
     setShowCamera(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -327,8 +337,12 @@ function RegistrationPageContent() {
         videoRef.current.srcObject = stream;
       }
     } catch {
-      toast({ title: 'ไม่สามารถเปิดกล้องได้', description: 'กรุณาอนุญาตการเข้าถึงกล้อง', variant: 'destructive' });
       setShowCamera(false);
+      toast({
+        title: '📷 เปิดกล้องถ่ายภาพบนอุปกรณ์',
+        description: 'กำลังสลับไปเปิดกล้องถ่ายภาพบนอุปกรณ์ของคุณ...',
+      });
+      idCardFileInputRef.current?.click();
     }
   };
 
@@ -415,6 +429,11 @@ function RegistrationPageContent() {
 
   // Citizen ID Card Camera & File Upload
   const startIdCardCamera = async () => {
+    if (typeof navigator === 'undefined' || !navigator?.mediaDevices?.getUserMedia) {
+      idCardFileInputRef.current?.click();
+      return;
+    }
+
     setShowIdCardCamera(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -429,8 +448,8 @@ function RegistrationPageContent() {
         idCardVideoRef.current.srcObject = stream;
       }
     } catch {
-      toast({ title: 'ไม่สามารถเปิดกล้องได้', description: 'กรุณาอนุญาตการเข้าถึงกล้อง', variant: 'destructive' });
       setShowIdCardCamera(false);
+      idCardFileInputRef.current?.click();
     }
   };
 
@@ -1123,7 +1142,11 @@ function RegistrationPageContent() {
         ══════════════════════════════════════════════════════════════════════ */}
         <TabsContent value="register" className="mt-4 space-y-6">
           {/* Card Reader Simulator & Camera OCR Component */}
-          <SmartCardReader onDataReceived={handleSmartCardData} onScanPhoto={startCamera} />
+          <SmartCardReader
+            onDataReceived={handleSmartCardData}
+            onScanPhoto={startCamera}
+            onUploadPhoto={() => idCardFileInputRef.current?.click()}
+          />
 
           {/* OCR Camera Stream Modal (Quick Scan & Extract) */}
           {showCamera && (
@@ -1509,6 +1532,7 @@ function RegistrationPageContent() {
                         ref={idCardFileInputRef}
                         type="file"
                         accept="image/*"
+                        capture="environment"
                         className="hidden"
                         onChange={handleIdCardFileUpload}
                       />
