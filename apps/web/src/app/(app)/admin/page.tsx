@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import {
   Users, Target, Building2, Plus, Edit2, Trash2, CheckCircle2,
   XCircle, Shield, Key, Search, RefreshCw, Phone, MapPin, Calendar,
@@ -24,7 +24,7 @@ import {
 import { formatDateTime } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 
-export default function AdminConsolePage() {
+function AdminConsoleContent() {
   const { toast } = useToast();
   const { user: currentUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState('users');
@@ -1395,5 +1395,13 @@ export default function AdminConsolePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AdminConsolePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">กำลังโหลดระบบจัดการ...</div>}>
+      <AdminConsoleContent />
+    </Suspense>
   );
 }

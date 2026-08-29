@@ -37,9 +37,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isAuthenticated, logout, recordActivity, checkIdleTimeout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 1. Initial auth check & 12-hour idle timeout check
   useEffect(() => {
+    if (!mounted) return;
+
     if (!isAuthenticated) {
       router.replace('/login');
       return;
@@ -49,11 +56,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!isValid) {
       router.replace('/login');
     }
-  }, [isAuthenticated, checkIdleTimeout, router]);
+  }, [mounted, isAuthenticated, checkIdleTimeout, router]);
 
   // 2. User activity listener (touch, click, keydown, scroll) to maintain 12h active session
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!mounted || !isAuthenticated) return;
 
     const handleUserInteraction = () => {
       const isStillValid = recordActivity();
@@ -85,16 +92,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       window.removeEventListener('scroll', handleUserInteraction);
       clearInterval(interval);
     };
-  }, [isAuthenticated, recordActivity, checkIdleTimeout, router]);
+  }, [mounted, isAuthenticated, recordActivity, checkIdleTimeout, router]);
 
   // 3. Technician Role Route Isolation: Technicians can only access /workspace and /handover
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'TECHNICIAN') {
+    if (mounted && isAuthenticated && user?.role === 'TECHNICIAN') {
       if (!pathname.startsWith('/workspace') && !pathname.startsWith('/handover')) {
         router.replace('/workspace');
       }
     }
-  }, [isAuthenticated, user, pathname, router]);
+  }, [mounted, isAuthenticated, user, pathname, router]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-orange" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) return null;
 

@@ -99,7 +99,16 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         if (!state.isAuthenticated) return false;
 
         const now = Date.now();
-        const last = state.lastActivityTime || now;
+        const last = state.lastActivityTime;
+
+        // If no timestamp recorded yet, initialize now
+        if (!last) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('last_active_time', now.toString());
+          }
+          set({ lastActivityTime: now });
+          return true;
+        }
 
         // Check if exceeded 12 hours of inactivity
         if (now - last > MAX_IDLE_TIMEOUT_MS) {
@@ -108,7 +117,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         }
 
         // Throttle updates: update timestamp at most once every 30 seconds
-        if (now - last > 30000 || !state.lastActivityTime) {
+        if (now - last > 30000) {
           if (typeof window !== 'undefined') {
             localStorage.setItem('last_active_time', now.toString());
           }
@@ -119,12 +128,21 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       checkIdleTimeout: () => {
         const state = get();
-        if (!state.isAuthenticated) return false;
+        if (!state.isAuthenticated) return true;
 
         const now = Date.now();
         const last = state.lastActivityTime;
 
-        if (!last || now - last > MAX_IDLE_TIMEOUT_MS) {
+        // If no timestamp recorded yet (e.g. fresh hydration or legacy session), initialize safely
+        if (!last) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('last_active_time', now.toString());
+          }
+          set({ lastActivityTime: now });
+          return true;
+        }
+
+        if (now - last > MAX_IDLE_TIMEOUT_MS) {
           state.logout();
           return false;
         }
