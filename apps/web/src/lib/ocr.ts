@@ -32,7 +32,7 @@ export function loadTesseract(): Promise<any> {
   tesseractLoadingPromise = new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error('Tesseract.js download timeout'));
-    }, 12000);
+    }, 15000);
 
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
@@ -55,14 +55,41 @@ export function loadTesseract(): Promise<any> {
   return tesseractLoadingPromise;
 }
 
-// 2. High-Quality Card Preprocessing (Grayscale + Adaptive Contrast Enhancement + Sharpening)
+// 2. Smart Auto-Crop for Handheld / Mobile Phone Photos
+export function autoCropCardBounds(canvas: HTMLCanvasElement): { x: number; y: number; width: number; height: number } {
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // If photo was taken vertically in portrait orientation (e.g. mobile photo where card is in the center)
+  if (h > w * 1.1) {
+    // Crop the center region where the card is placed
+    const cropWidth = Math.round(w * 0.94);
+    const cropHeight = Math.round(cropWidth * 0.65); // ID card aspect ratio ~ 1.58 : 1
+    const cropX = Math.round((w - cropWidth) / 2);
+    const cropY = Math.round(Math.max(0, (h - cropHeight) / 2));
+    return { x: cropX, y: cropY, width: cropWidth, height: Math.min(cropHeight, h - cropY) };
+  }
+
+  // If wide landscape photo with large borders
+  if (w > h * 1.7) {
+    const cropHeight = Math.round(h * 0.92);
+    const cropWidth = Math.round(cropHeight * 1.58);
+    const cropX = Math.round(Math.max(0, (w - cropWidth) / 2));
+    const cropY = Math.round((h - cropHeight) / 2);
+    return { x: cropX, y: cropY, width: Math.min(cropWidth, w - cropX), height: cropHeight };
+  }
+
+  return { x: 0, y: 0, width: w, height: h };
+}
+
+// 3. High-Quality Card Preprocessing (Grayscale + Adaptive Contrast Enhancement + Sharpening)
 export function preprocessCardImage(
   sourceCanvas: HTMLCanvasElement,
   options?: { contrast?: number; binarize?: boolean; cropRect?: { x: number; y: number; width: number; height: number } }
 ): HTMLCanvasElement {
   try {
     const crop = options?.cropRect || { x: 0, y: 0, width: sourceCanvas.width, height: sourceCanvas.height };
-    const targetWidth = Math.max(1200, Math.min(2200, crop.width * (1400 / Math.max(1, crop.width))));
+    const targetWidth = Math.max(1400, Math.min(2400, crop.width * (1600 / Math.max(1, crop.width))));
     const scale = targetWidth / Math.max(1, crop.width);
     const targetHeight = Math.round(crop.height * scale);
 
@@ -78,7 +105,7 @@ export function preprocessCardImage(
     const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
     const data = imgData.data;
 
-    const contrast = options?.contrast ?? 1.45;
+    const contrast = options?.contrast ?? 1.5;
     const intercept = 128 * (1 - contrast);
 
     for (let i = 0; i < data.length; i += 4) {
@@ -87,7 +114,7 @@ export function preprocessCardImage(
       let enhanced = gray * contrast + intercept;
 
       if (options?.binarize) {
-        enhanced = enhanced > 135 ? 255 : 0;
+        enhanced = enhanced > 140 ? 255 : 0;
       } else {
         enhanced = Math.max(0, Math.min(255, enhanced));
       }
@@ -104,7 +131,7 @@ export function preprocessCardImage(
   }
 }
 
-// 3. Thai National ID Checksum Validator
+// 4. Thai National ID Checksum Validator
 export function isValidThaiNationalId(id: string): boolean {
   if (!id) return false;
   const clean = id.replace(/\D/g, '');
@@ -117,7 +144,7 @@ export function isValidThaiNationalId(id: string): boolean {
   return check === parseInt(clean[12], 10);
 }
 
-// 4. Intelligent Parser for Thai ID Card Text
+// 5. Intelligent Parser for Thai ID Card Text
 export function parseThaiIdCardText(text: string): ExtractedIdCardData {
   if (!text) {
     return {
@@ -142,13 +169,10 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
   let address = '';
 
   // ── A. EXTRACT 13-DIGIT NATIONAL ID (เลขประจำตัวประชาชน) ──
-  // Pattern 1: Standard Thai ID format with spaces/dots: e.g. "3 5499 00239 15 2" or "3-5499-00239-15-2"
   const spacedIdPattern = /([1-8])[\s\.\-_]+(\d{4})[\s\.\-_]+(\d{5})[\s\.\-_]+(\d{2})[\s\.\-_]+(\d{1})/;
   const contiguousIdPattern = /\b([1-8]\d{12})\b/;
 
-  // Check line by line first
   for (const line of lines) {
-    // Check if line looks like top ID line
     const spacedMatch = line.match(spacedIdPattern);
     if (spacedMatch) {
       const candidate = `${spacedMatch[1]}${spacedMatch[2]}${spacedMatch[3]}${spacedMatch[4]}${spacedMatch[5]}`;
@@ -168,9 +192,8 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
     }
   }
 
-  // Fallback for ID: look for 13 digits in entire text where first digit is 1-8
+  // Fallback for ID in top section
   if (!nationalId) {
-    // Find all numbers in top half of text
     const topLines = lines.slice(0, Math.min(6, lines.length)).join(' ');
     const digitsInTop = topLines.replace(/\D/g, '');
     if (digitsInTop.length >= 13) {
@@ -277,13 +300,11 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Check stop keywords
     if (addressStopKeywords.some((sk) => line.includes(sk))) {
       if (recordingAddress) break;
       continue;
     }
 
-    // Check if line contains address starter
     if (addressStartKeywords.some((ak) => line.includes(ak)) || line.includes('/') || /\d+\/\d+/.test(line)) {
       recordingAddress = true;
     }
@@ -298,7 +319,6 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
         addressTokens.push(clean);
       }
 
-      // If line contains 'จ.' or 'จังหวัด', that's usually the end of address
       if (line.includes('จ.') || line.includes('จังหวัด') || line.includes('กทม') || line.includes('กรุงเทพ')) {
         break;
       }
@@ -323,7 +343,7 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
   };
 }
 
-// 5. High-Precision Multi-Pass Card OCR Engine
+// 6. High-Precision Multi-Pass Card OCR Engine
 export async function scanIdCardImage(
   imageElementOrCanvas: HTMLImageElement | HTMLCanvasElement | string,
   onProgress?: (percent: number, statusText: string) => void
@@ -338,7 +358,7 @@ export async function scanIdCardImage(
   };
 
   try {
-    onProgress?.(10, 'กำลังเตรียมประมวลผลภาพถ่ายบัตรประชาชน...');
+    onProgress?.(10, 'กำลังเตรียมรูปภาพและตัดขอบบัตรประชาชนอัตโนมัติ...');
     let sourceCanvas: HTMLCanvasElement;
 
     if (typeof imageElementOrCanvas === 'string') {
@@ -349,16 +369,16 @@ export async function scanIdCardImage(
         img.onerror = res;
       });
       sourceCanvas = document.createElement('canvas');
-      sourceCanvas.width = img.naturalWidth || img.width || 1280;
-      sourceCanvas.height = img.naturalHeight || img.height || 720;
+      sourceCanvas.width = img.naturalWidth || img.width || 1400;
+      sourceCanvas.height = img.naturalHeight || img.height || 900;
       const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
       ctx?.drawImage(img, 0, 0);
     } else if (imageElementOrCanvas instanceof HTMLCanvasElement) {
       sourceCanvas = imageElementOrCanvas;
     } else {
       sourceCanvas = document.createElement('canvas');
-      sourceCanvas.width = imageElementOrCanvas.naturalWidth || imageElementOrCanvas.width || 1280;
-      sourceCanvas.height = imageElementOrCanvas.naturalHeight || imageElementOrCanvas.height || 720;
+      sourceCanvas.width = imageElementOrCanvas.naturalWidth || imageElementOrCanvas.width || 1400;
+      sourceCanvas.height = imageElementOrCanvas.naturalHeight || imageElementOrCanvas.height || 900;
       const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
       ctx?.drawImage(imageElementOrCanvas, 0, 0);
     }
@@ -376,13 +396,13 @@ export async function scanIdCardImage(
       return fallbackResult;
     }
 
-    onProgress?.(40, 'AI กำลังเริ่มต้นตัวอ่านภาษาไทยและตัวเลข...');
+    onProgress?.(35, 'AI กำลังเริ่มต้นโมเดลอ่านภาษาไทยและตัวเลข...');
     let worker: any = null;
     try {
       worker = await Tesseract.createWorker('tha+eng', 1, {
         logger: (m: any) => {
           if (m?.status === 'recognizing text' && typeof m?.progress === 'number') {
-            const pct = Math.round(40 + m.progress * 50);
+            const pct = Math.round(35 + m.progress * 55);
             onProgress?.(pct, `AI กำลังสแกนตัวอักษรและตัวเลข... (${pct}%)`);
           }
         },
@@ -400,25 +420,31 @@ export async function scanIdCardImage(
       return fallbackResult;
     }
 
-    // ── PASS 1: Scan Full Enhanced Card ──
-    const fullEnhanced = preprocessCardImage(sourceCanvas, { contrast: 1.4 });
+    // Auto-detect crop bounds (zooms into the card region)
+    const cardBounds = autoCropCardBounds(sourceCanvas);
+
+    // ── PASS 1: Scan Auto-Cropped Card with High Resolution ──
+    const fullEnhanced = preprocessCardImage(sourceCanvas, {
+      contrast: 1.45,
+      cropRect: cardBounds,
+    });
     const { data: fullData } = await worker.recognize(fullEnhanced);
     let result = parseThaiIdCardText(fullData?.text || '');
 
     // ── PASS 2: If National ID or Name is still missing, scan focused sub-regions ──
     if (!result.nationalId || !result.firstName || !result.lastName) {
-      onProgress?.(85, 'กำลังสแกนซ้ำในตำแหน่งสำคัญของบัตร...');
+      onProgress?.(85, 'กำลังสแกนซ้ำในตำแหน่งชื่อและตัวเลข 13 หลัก...');
 
       // Sub-region 1: Top Right (13-Digit ID band: Top 5%-35%, Width 40%-100%)
       if (!result.nationalId) {
         try {
-          const idRegion = preprocessCardImage(sourceCanvas, {
-            contrast: 1.6,
+          const idRegion = preprocessCardImage(fullEnhanced, {
+            contrast: 1.65,
             cropRect: {
-              x: Math.round(sourceCanvas.width * 0.35),
-              y: Math.round(sourceCanvas.height * 0.05),
-              width: Math.round(sourceCanvas.width * 0.65),
-              height: Math.round(sourceCanvas.height * 0.35),
+              x: Math.round(fullEnhanced.width * 0.35),
+              y: Math.round(fullEnhanced.height * 0.05),
+              width: Math.round(fullEnhanced.width * 0.65),
+              height: Math.round(fullEnhanced.height * 0.35),
             },
           });
           const { data: idData } = await worker.recognize(idRegion);
@@ -432,13 +458,13 @@ export async function scanIdCardImage(
       // Sub-region 2: Name & Address band (Top 20%-85%, Left 15%-90%)
       if (!result.firstName || !result.lastName || !result.address) {
         try {
-          const nameRegion = preprocessCardImage(sourceCanvas, {
-            contrast: 1.5,
+          const nameRegion = preprocessCardImage(fullEnhanced, {
+            contrast: 1.55,
             cropRect: {
-              x: Math.round(sourceCanvas.width * 0.15),
-              y: Math.round(sourceCanvas.height * 0.2),
-              width: Math.round(sourceCanvas.width * 0.8),
-              height: Math.round(sourceCanvas.height * 0.65),
+              x: Math.round(fullEnhanced.width * 0.15),
+              y: Math.round(fullEnhanced.height * 0.2),
+              width: Math.round(fullEnhanced.width * 0.8),
+              height: Math.round(fullEnhanced.height * 0.65),
             },
           });
           const { data: nameData } = await worker.recognize(nameRegion);
