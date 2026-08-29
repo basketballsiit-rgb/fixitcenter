@@ -56,6 +56,7 @@ import { VehiclePrintLayout } from './vehicle-print-layout';
 import { KitchenPrintLayout } from '../kitchen/kitchen-print-layout';
 import { StandardRatesModal } from '@/components/settings/standard-rates-modal';
 import { getStandardRates, getVehicleRate, getApplianceRate } from '@/lib/settings';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 const APPLIANCE_TYPE_OPTIONS = [
   'พัดลม',
@@ -1871,8 +1872,10 @@ function ReportsPageContent() {
 
 export default function ReportsPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-400">กำลังโหลดระบบรายงาน...</div>}>
-      <ReportsPageContent />
-    </Suspense>
+    <ErrorBoundary fallbackTitle="ระบบรายงานและสถิติ">
+      <Suspense fallback={<div className="p-8 text-center text-slate-400">กำลังโหลดระบบรายงาน...</div>}>
+        <ReportsPageContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

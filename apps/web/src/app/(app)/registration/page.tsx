@@ -33,6 +33,7 @@ import { cn, formatNationalId, formatPhone } from '@/lib/utils';
 import { PrintLayout } from './print-layout';
 import { PrintTagLayout } from './print-tag-layout';
 import { scanIdCardImage, isValidThaiNationalId } from '@/lib/ocr';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 const formSchema = z.object({
   missionId: z.string().min(1, 'เลือกภารกิจ'),
@@ -2569,8 +2570,10 @@ function RegistrationPageContent() {
 
 export default function RegistrationPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-400">กำลังโหลดระบบลงทะเบียน...</div>}>
-      <RegistrationPageContent />
-    </Suspense>
+    <ErrorBoundary fallbackTitle="ระบบลงทะเบียนรับงานซ่อม">
+      <Suspense fallback={<div className="p-8 text-center text-slate-400">กำลังโหลดระบบลงทะเบียน...</div>}>
+        <RegistrationPageContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
