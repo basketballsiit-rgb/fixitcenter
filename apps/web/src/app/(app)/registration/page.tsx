@@ -348,31 +348,32 @@ function RegistrationPageContent() {
         setIdCardImage(cardImageBase64);
       }
 
-      setOcrReviewData({
-        nationalId: extracted.nationalId,
-        firstName: extracted.firstName,
-        lastName: extracted.lastName,
-        address: extracted.address,
-        rawText: extracted.rawText,
+      const safeResult = {
+        nationalId: extracted?.nationalId || '',
+        firstName: extracted?.firstName || '',
+        lastName: extracted?.lastName || '',
+        address: extracted?.address || '',
+        rawText: extracted?.rawText || '',
         cardImage: cardImageBase64,
-      });
+      };
+
+      setOcrReviewData(safeResult);
 
       // Auto-fill fields if extracted
-      if (extracted.nationalId || extracted.firstName) {
-        if (extracted.nationalId) setValue('nationalId', extracted.nationalId);
-        if (extracted.firstName) setValue('firstName', extracted.firstName);
-        if (extracted.lastName) setValue('lastName', extracted.lastName);
-        if (extracted.address) setValue('address', extracted.address);
+      if (safeResult.nationalId || safeResult.firstName) {
+        if (safeResult.nationalId) setValue('nationalId', safeResult.nationalId);
+        if (safeResult.firstName) setValue('firstName', safeResult.firstName);
+        if (safeResult.lastName) setValue('lastName', safeResult.lastName);
+        if (safeResult.address) setValue('address', safeResult.address);
 
         toast({
           title: '✓ ดึงข้อมูลบัตรประชาชนด้วย AI OCR สำเร็จ',
-          description: `${extracted.firstName || ''} ${extracted.lastName || ''} (${extracted.nationalId || 'อ่านข้อความแล้ว'})`,
+          description: `${safeResult.firstName || ''} ${safeResult.lastName || ''} (${safeResult.nationalId || 'อ่านข้อความแล้ว'})`,
         });
       } else {
         toast({
-          title: '⚠️ ไม่พบข้อมูลที่ชัดเจนจากภาพถ่าย',
-          description: 'สามารถตรวจสอบข้อความที่อ่านได้ และกรอกข้อมูลเพิ่มเติมได้ในหน้าต่างสรุปผล',
-          variant: 'destructive',
+          title: '📷 บันทึกภาพบัตรประชาชนเรียบร้อย',
+          description: 'สามารถตรวจสอบและกรอกข้อมูลเพิ่มเติมในแบบฟอร์มได้ทันที',
         });
       }
 
