@@ -576,12 +576,12 @@ function ReportsPageContent() {
 
         <div className="flex items-center gap-3">
           <Button
-            onClick={() => setIsStandardRatesModalOpen(true)}
+            onClick={fetchAllReportData}
             variant="outline"
             className="border-slate-300 text-slate-700 bg-white hover:bg-slate-50 font-bold gap-1.5 shadow-xs text-xs h-9"
           >
-            <Wrench className="h-4 w-4 text-brand-orange" />
-            <span>⚙️ ตั้งค่าอัตรามาตรฐาน</span>
+            <RefreshCw className="h-4 w-4 text-brand-orange" />
+            <span>🔄 รีเฟรชข้อมูล</span>
           </Button>
 
           <Button
@@ -728,11 +728,12 @@ function ReportsPageContent() {
             </div>
 
             <Button
-              onClick={handleOpenCreateAppliance}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2 shadow-sm shrink-0"
+              onClick={fetchAllReportData}
+              variant="outline"
+              className="border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 font-bold gap-1.5 shadow-xs shrink-0 text-xs h-10"
             >
-              <Plus className="h-4 w-4" />
-              <span>+ บันทึกสถิติเครื่องใช้ไฟฟ้า</span>
+              <RefreshCw className="h-4 w-4 text-amber-600" />
+              <span>ดึงข้อมูลจากงานลงทะเบียน</span>
             </Button>
           </div>
 
@@ -1003,11 +1004,12 @@ function ReportsPageContent() {
             </div>
 
             <Button
-              onClick={handleOpenCreateVehicle}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2 shadow-sm shrink-0"
+              onClick={fetchAllReportData}
+              variant="outline"
+              className="border-blue-300 text-blue-900 bg-blue-50 hover:bg-blue-100 font-bold gap-1.5 shadow-xs shrink-0 text-xs h-10"
             >
-              <Plus className="h-4 w-4" />
-              <span>+ บันทึกสถิติงานยานพาหนะ</span>
+              <RefreshCw className="h-4 w-4 text-blue-600" />
+              <span>ดึงข้อมูลจากงานลงทะเบียน</span>
             </Button>
           </div>
 

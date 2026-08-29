@@ -1,7 +1,7 @@
 /**
  * Thai Citizen ID Card OCR Engine
- * Extracts 13-digit National ID, Name, Surname, and Address from ID card photos.
- * 100% crash-proof with fallback for offline / low-network environments.
+ * Robust extraction of 13-digit National ID, First Name, Last Name, and Address from Thai ID Cards.
+ * 100% crash-proof with graceful fallback for offline / low-network environments.
  */
 
 declare global {
@@ -28,10 +28,9 @@ export function loadTesseract(): Promise<any> {
   if (tesseractLoadingPromise) return tesseractLoadingPromise;
 
   tesseractLoadingPromise = new Promise((resolve, reject) => {
-    // Timeout after 8 seconds
     const timer = setTimeout(() => {
       reject(new Error('Tesseract.js download timeout'));
-    }, 8000);
+    }, 10000);
 
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
@@ -57,14 +56,14 @@ export function loadTesseract(): Promise<any> {
 // 2. Preprocess canvas for optimal Thai ID OCR
 export function preprocessCardImage(sourceCanvas: HTMLCanvasElement): HTMLCanvasElement {
   try {
-    const targetWidth = 1400;
+    const targetWidth = Math.max(1200, Math.min(2000, sourceCanvas.width));
     const scale = targetWidth / Math.max(1, sourceCanvas.width);
     const targetHeight = Math.round(sourceCanvas.height * scale);
 
     const canvas = document.createElement('canvas');
     canvas.width = targetWidth;
     canvas.height = targetHeight;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return sourceCanvas;
 
     // Draw scaled image
@@ -74,8 +73,8 @@ export function preprocessCardImage(sourceCanvas: HTMLCanvasElement): HTMLCanvas
     const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
     const data = imgData.data;
 
-    // Contrast factor
-    const contrast = 1.3;
+    // Adaptive Contrast factor
+    const contrast = 1.35;
     const intercept = 128 * (1 - contrast);
 
     for (let i = 0; i < data.length; i += 4) {
@@ -134,9 +133,10 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
   let lastName = '';
   let address = '';
 
-  // ── A. Extract 13-digit National ID ──
+  // ── A. Extract 13-digit National ID (เลขประจำตัวประชาชน) ──
+  // Regex with flexible separators (spaces, dots, dashes)
   const idRegexes = [
-    /\b(\d{1})[\s\-_]?(\d{4})[\s\-_]?(\d{5})[\s\-_]?(\d{2})[\s\-_]?(\d{1})\b/,
+    /(\d{1})[\s\.\-_]+(\d{4})[\s\.\-_]+(\d{5})[\s\.\-_]+(\d{2})[\s\.\-_]+(\d{1})/,
     /\b(\d{13})\b/,
   ];
 
@@ -154,10 +154,11 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
     if (nationalId) break;
   }
 
-  // Fallback: look for 13 digits combined across entire text
+  // Fallback: look for 13 digits combined across entire text or near "เลขประจำตัว"
   if (!nationalId) {
     const allDigits = cleanText.replace(/\D/g, '');
     if (allDigits.length >= 13) {
+      // Find valid checksum first
       for (let i = 0; i <= allDigits.length - 13; i++) {
         const sub = allDigits.substring(i, i + 13);
         if (isValidThaiNationalId(sub)) {
@@ -165,8 +166,9 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
           break;
         }
       }
-      if (!nationalId && allDigits.length === 13) {
-        nationalId = allDigits;
+      // If no valid checksum found, take first 13-digit sequence
+      if (!nationalId && allDigits.length >= 13) {
+        nationalId = allDigits.substring(0, 13);
       }
     }
   }
@@ -174,26 +176,36 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
   // ── B. Extract Name (ชื่อ - สกุล) ──
   const prefixes = [
     'นาย', 'นางสาว', 'นาง', 'เด็กชาย', 'เด็กหญิง', 'น.ส.', 'ด.ช.', 'ด.ญ.',
-    'พระ', 'สามเณร', 'พลฯ', 'ร.ต.', 'ร.ท.', 'ร.อ.', 'พ.ต.', 'พ.ท.', 'พ.อ.'
+    'พระ', 'สามเณร', 'พลฯ', 'ร.ต.', 'ร.ท.', 'ร.อ.', 'พ.ต.', 'พ.ท.', 'พ.อ.',
+    'ดร.', 'ผศ.', 'รศ.', 'ศ.'
   ];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
+    // Check Thai prefix first
     for (const prefix of prefixes) {
       if (line.includes(prefix)) {
         const parts = line.split(prefix);
         if (parts.length > 1) {
           const namePart = parts[1].trim();
-          const tokens = namePart.split(/\s+/).filter((t) => t.length > 0);
+          // Filter only Thai characters and spaces
+          const cleanName = namePart
+            .replace(/ชื่อตัวและชื่อสกุล|ชื่อตัว|ชื่อสกุล|ชื่อ|Name|Last\s*name/gi, '')
+            .replace(/[^ก-๙\s]/g, '')
+            .trim();
+          const tokens = cleanName.split(/\s+/).filter((t) => t.length > 1);
+
           if (tokens.length >= 2) {
-            firstName = tokens[0].replace(/[^ก-๙]/g, '');
-            lastName = tokens.slice(1).join(' ').replace(/[^ก-๙\s]/g, '').trim();
+            firstName = tokens[0];
+            lastName = tokens.slice(1).join(' ');
           } else if (tokens.length === 1) {
-            firstName = tokens[0].replace(/[^ก-๙]/g, '');
+            firstName = tokens[0];
+            // Check next line for surname
             if (i + 1 < lines.length) {
-              const nextTokens = lines[i + 1].split(/\s+/).filter((t) => t.length > 0);
-              if (nextTokens.length > 0 && /^[ก-๙]+$/.test(nextTokens[0])) {
+              const nextClean = lines[i + 1].replace(/[^ก-๙\s]/g, '').trim();
+              const nextTokens = nextClean.split(/\s+/).filter((t) => t.length > 1);
+              if (nextTokens.length > 0 && !prefixes.some((p) => nextClean.includes(p))) {
                 lastName = nextTokens[0];
               }
             }
@@ -203,11 +215,13 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
       if (firstName) break;
     }
 
+    // Secondary match: lines containing 'ชื่อตัวและชื่อสกุล' or 'ชื่อ'
     if (!firstName && (line.includes('ชื่อ') || line.includes('Name'))) {
       const cleaned = line
-        .replace(/ชื่อตัวและชื่อสกุล|ชื่อตัว|ชื่อสกุล|ชื่อ|Name/gi, '')
+        .replace(/ชื่อตัวและชื่อสกุล|ชื่อตัว|ชื่อสกุล|ชื่อ|Name|Last\s*name/gi, '')
+        .replace(/[^ก-๙\s]/g, '')
         .trim();
-      const tokens = cleaned.split(/\s+/).filter((t) => t.length > 0 && /^[ก-๙]+$/.test(t));
+      const tokens = cleaned.split(/\s+/).filter((t) => t.length > 1);
       if (tokens.length >= 2) {
         firstName = tokens[0];
         lastName = tokens.slice(1).join(' ');
@@ -218,23 +232,38 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
   }
 
   // ── C. Extract Address (ที่อยู่) ──
-  const addressKeywords = ['ที่อยู่', 'บ้านเลขที่', 'หมู่ที่', 'หมู่', 'ตำบล', 'ต.', 'อำเภอ', 'อ.', 'จังหวัด', 'จ.', 'ตรอก', 'ซอย', 'ถนน'];
+  const addressKeywords = [
+    'ที่อยู่', 'บ้านเลขที่', 'หมู่ที่', 'หมู่', 'ตำบล', 'ต.', 'อำเภอ', 'อ.',
+    'จังหวัด', 'จ.', 'ตรอก', 'ซอย', 'ถนน', 'ถ.', 'แขวง', 'เขต'
+  ];
+  const stopKeywords = ['วันออกบัตร', 'วันหมดอายุ', 'ศาสนา', 'เจ้าพนักงาน', 'Date of', 'Card'];
   const addressLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const isStop = stopKeywords.some((sk) => line.includes(sk));
+    if (isStop && addressLines.length > 0) break;
+
     const hasAddressKeyword = addressKeywords.some((kw) => line.includes(kw));
 
-    if (hasAddressKeyword || line.includes('น่าน') || line.includes('เมือง')) {
-      const cleanLine = line.replace(/ที่อยู่/g, '').trim();
-      if (cleanLine.length > 3 && !cleanLine.includes('ศาสนา') && !cleanLine.includes('วันออกบัตร')) {
+    if (hasAddressKeyword || (addressLines.length > 0 && /[\dก-๙]/.test(line))) {
+      let cleanLine = line
+        .replace(/ที่อยู่/g, '')
+        .replace(/Address/gi, '')
+        .trim();
+
+      if (cleanLine.length > 2 && !isStop) {
         addressLines.push(cleanLine);
       }
     }
   }
 
   if (addressLines.length > 0) {
-    address = addressLines.join(' ').replace(/\s+/g, ' ').trim();
+    address = addressLines
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .replace(/[^0-9ก-๙\/\s\.\-]/g, '')
+      .trim();
   }
 
   return {
@@ -262,7 +291,7 @@ export async function scanIdCardImage(
   };
 
   try {
-    onProgress?.(10, 'กำลังเตรียมประมวลผลรูปภาพ...');
+    onProgress?.(10, 'กำลังเตรียมรูปภาพบัตรประชาชน...');
     let canvas: HTMLCanvasElement;
 
     if (typeof imageElementOrCanvas === 'string') {
@@ -273,42 +302,42 @@ export async function scanIdCardImage(
         img.onerror = res;
       });
       canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width || 800;
-      canvas.height = img.naturalHeight || img.height || 500;
-      const ctx = canvas.getContext('2d');
+      canvas.width = img.naturalWidth || img.width || 1200;
+      canvas.height = img.naturalHeight || img.height || 750;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx?.drawImage(img, 0, 0);
     } else if (imageElementOrCanvas instanceof HTMLCanvasElement) {
       canvas = imageElementOrCanvas;
     } else {
       canvas = document.createElement('canvas');
-      canvas.width = imageElementOrCanvas.naturalWidth || imageElementOrCanvas.width || 800;
-      canvas.height = imageElementOrCanvas.naturalHeight || imageElementOrCanvas.height || 500;
-      const ctx = canvas.getContext('2d');
+      canvas.width = imageElementOrCanvas.naturalWidth || imageElementOrCanvas.width || 1200;
+      canvas.height = imageElementOrCanvas.naturalHeight || imageElementOrCanvas.height || 750;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx?.drawImage(imageElementOrCanvas, 0, 0);
     }
 
     const preprocessed = preprocessCardImage(canvas);
 
-    onProgress?.(25, 'กำลังเชื่อมต่อเอนจิน OCR...');
+    onProgress?.(25, 'กำลังเชื่อมต่อเอนจิน AI OCR...');
     let Tesseract: any = null;
     try {
       Tesseract = await loadTesseract();
     } catch (loadErr) {
-      console.warn('Tesseract CDN load warning:', loadErr);
+      console.warn('Tesseract CDN load notice:', loadErr);
     }
 
     if (!Tesseract || !Tesseract.createWorker) {
-      onProgress?.(100, 'บันทึกภาพบัตรเรียบร้อย (กรอกข้อมูลในแบบฟอร์ม)');
+      onProgress?.(100, 'บันทึกภาพบัตรประชาชนเรียบร้อย (สามารถกรอกข้อมูลในฟอร์ม)');
       return fallbackResult;
     }
 
-    onProgress?.(45, 'AI กำลังอ่านตัวอักษรและตัวเลข...');
+    onProgress?.(40, 'AI กำลังอ่านตัวอักษรและตัวเลขบนบัตรประชาชน...');
     let worker: any = null;
     try {
       worker = await Tesseract.createWorker('tha+eng', 1, {
         logger: (m: any) => {
           if (m?.status === 'recognizing text' && typeof m?.progress === 'number') {
-            const pct = Math.round(45 + m.progress * 50);
+            const pct = Math.round(40 + m.progress * 50);
             onProgress?.(pct, `กำลังประมวลผล... (${pct}%)`);
           }
         },
@@ -318,12 +347,12 @@ export async function scanIdCardImage(
       try {
         worker = await Tesseract.createWorker('eng', 1);
       } catch (e2) {
-        console.warn('Worker creation failed:', e2);
+        console.warn('Worker creation notice:', e2);
       }
     }
 
     if (!worker) {
-      onProgress?.(100, 'บันทึกภาพบัตรเรียบร้อย');
+      onProgress?.(100, 'บันทึกภาพบัตรประชาชนเรียบร้อย');
       return fallbackResult;
     }
 
@@ -332,14 +361,14 @@ export async function scanIdCardImage(
       await worker.terminate();
     } catch {}
 
-    onProgress?.(95, 'กำลังแยกแยะข้อมูล 13 หลักและชื่อ...');
+    onProgress?.(95, 'กำลังแยกแยะเลข 13 หลัก, ชื่อ-นามสกุล และที่อยู่...');
     const result = parseThaiIdCardText(data?.text || '');
-    onProgress?.(100, 'ประมวลผลเสร็จสิ้น');
+    onProgress?.(100, 'ประมวลผล OCR สำเร็จ');
 
     return result || fallbackResult;
   } catch (err) {
     console.error('scanIdCardImage error:', err);
-    onProgress?.(100, 'ประมวลผลเสร็จสิ้น');
+    onProgress?.(100, 'บันทึกภาพบัตรเรียบร้อย');
     return fallbackResult;
   }
 }

@@ -9,6 +9,7 @@ interface SmartCardData {
   nationalId: string;
   firstName: string;
   lastName: string;
+  address?: string;
 }
 
 interface SmartCardReaderProps {
@@ -19,9 +20,9 @@ interface SmartCardReaderProps {
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'simulating' | 'error';
 
 const MOCK_CARD_DATA: SmartCardData[] = [
-  { nationalId: '1234567890123', firstName: 'สมชาย', lastName: 'ใจดี' },
-  { nationalId: '9876543210987', firstName: 'สมหญิง', lastName: 'รักไทย' },
-  { nationalId: '3456789012345', firstName: 'วิชัย', lastName: 'พัฒนา' },
+  { nationalId: '1559900123456', firstName: 'สมชาย', lastName: 'ใจดี', address: '99/1 หมู่ 2 ต.ในเวียง อ.เมืองน่าน จ.น่าน' },
+  { nationalId: '3550100789012', firstName: 'สมหญิง', lastName: 'รักไทย', address: '12 หมู่ 4 ต.ผาสิงห์ อ.เมืองน่าน จ.น่าน' },
+  { nationalId: '3550400567890', firstName: 'วิชัย', lastName: 'พัฒนา', address: '45/3 หมู่ 1 ต.ดู่ใต้ อ.เมืองน่าน จ.น่าน' },
 ];
 
 export function SmartCardReader({ onDataReceived, onScanPhoto }: SmartCardReaderProps) {

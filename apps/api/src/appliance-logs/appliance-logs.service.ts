@@ -141,7 +141,24 @@ export class ApplianceLogsService {
       orderBy: { registeredAt: 'asc' },
     });
 
-    if (orders.length === 0) return { count: 0, message: 'ไม่มีข้อมูลงานซ่อมในระบบ' };
+    // Fetch standard budget rates from repair_categories
+    let categoryRows: any[] = [];
+    try {
+      categoryRows = await this.prisma.$queryRawUnsafe(
+        `SELECT name, code, standard_budget FROM repair_categories WHERE is_active = true`
+      );
+    } catch {}
+
+    const getCatBudget = (catName: string, fallback: number) => {
+      if (!catName || !categoryRows || categoryRows.length === 0) return fallback;
+      const match = categoryRows.find((c) =>
+        c.name.toLowerCase() === catName.toLowerCase() ||
+        c.code.toLowerCase() === catName.toLowerCase() ||
+        catName.toLowerCase().includes(c.name.toLowerCase()) ||
+        c.name.toLowerCase().includes(catName.toLowerCase())
+      );
+      return match && match.standard_budget ? Number(match.standard_budget) : fallback;
+    };
 
     // Group by Date (YYYY-MM-DD), CenterId, and ApplianceType/Category
     const groups: Record<string, {
@@ -183,7 +200,8 @@ export class ApplianceLogsService {
         groups[key].completedCount += 1;
       }
       const pCost = Number(order.partsCost || 0);
-      groups[key].totalBudget += pCost > 0 ? pCost : 100;
+      const stdRate = getCatBudget(appType, 100);
+      groups[key].totalBudget += pCost > 0 ? pCost : stdRate;
 
       if (order.problemDesc && groups[key].problems.length < 3) {
         groups[key].problems.push(order.problemDesc);
