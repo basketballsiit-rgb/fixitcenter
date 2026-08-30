@@ -12,7 +12,7 @@ export interface ExtractedThaiIdCard {
   expireDate?: string;
   rawText?: string;
   confidence: number;
-  provider: 'gemini' | 'local';
+  provider: 'gemini' | 'openai' | 'local';
 }
 
 @Injectable()
@@ -82,13 +82,6 @@ export class OcrService implements OnModuleInit {
       return { success: false, message: 'API Key ไม่ถูกต้อง หรือสั้นเกินไป' };
     }
 
-    if (!cleanKey.startsWith('AIzaSy')) {
-      return {
-        success: false,
-        message: 'Google Gemini API Key ต้องขึ้นต้นด้วย "AIzaSy..." กรุณาไปที่ https://aistudio.google.com/app/apikey เพื่อกด "Create API key" ฟรี',
-      };
-    }
-
     const candidateModels = [
       'gemini-1.5-flash',
       'gemini-2.0-flash',
@@ -98,6 +91,7 @@ export class OcrService implements OnModuleInit {
 
     let lastError = '';
 
+    // 1. Try Google Gemini API
     for (const model of candidateModels) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
@@ -126,9 +120,35 @@ export class OcrService implements OnModuleInit {
       }
     }
 
+    // 2. Try OpenAI API if key starts with sk-
+    if (cleanKey.startsWith('sk-')) {
+      try {
+        const res = await axios.post(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: 'Ping test. Reply with: OK' }],
+            max_tokens: 5,
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${cleanKey}`,
+            },
+            timeout: 10000,
+          }
+        );
+        if (res.status === 200) {
+          return { success: true, message: '✓ เชื่อมต่อ OpenAI Vision (GPT-4o-mini) สำเร็จพร้อมใช้งาน!' };
+        }
+      } catch (oErr: any) {
+        lastError = oErr?.response?.data?.error?.message || oErr?.message || lastError;
+      }
+    }
+
     return {
       success: false,
-      message: `เกิดข้อผิดพลาด: ${lastError} (กรุณาตรวจเช็ค API Key จาก https://aistudio.google.com)`,
+      message: `เชื่อมต่อไม่สำเร็จ: ${lastError} (สำหรับ Google Gemini คีย์จะขึ้นต้นด้วย "AIzaSy..." จาก https://aistudio.google.com/app/apikey)`,
     };
   }
 
@@ -235,9 +255,66 @@ export class OcrService implements OnModuleInit {
         }
       }
 
+      // If OpenAI key (sk-...)
+      if (apiKey.startsWith('sk-')) {
+        try {
+          const res = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: systemPrompt,
+                },
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'image_url',
+                      image_url: {
+                        url: `data:${mimeType};base64,${cleanBase64}`,
+                      },
+                    },
+                  ],
+                },
+              ],
+              temperature: 0.1,
+              max_tokens: 1024,
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
+              },
+              timeout: 25000,
+            }
+          );
+          const rawText = res.data?.choices?.[0]?.message?.content || '';
+          if (rawText) {
+            const cleanedJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanedJson);
+            return {
+              nationalId: (parsed.nationalId || '').replace(/\D/g, ''),
+              title: parsed.title || '',
+              firstName: parsed.firstName || '',
+              lastName: parsed.lastName || '',
+              address: parsed.address || '',
+              birthDate: parsed.birthDate || '',
+              expireDate: parsed.expireDate || '',
+              rawText,
+              confidence: 99,
+              provider: 'openai',
+            };
+          }
+        } catch (oErr: any) {
+          this.logger.warn(`OpenAI vision error: ${oErr?.message}`);
+        }
+      }
+
       return null;
     } catch (err: any) {
-      this.logger.error(`Gemini Vision OCR error: ${err?.message}`);
+      this.logger.error(`AI Vision OCR error: ${err?.message}`);
       return null;
     }
   }
