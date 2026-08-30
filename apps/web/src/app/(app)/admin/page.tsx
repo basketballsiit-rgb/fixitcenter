@@ -1154,7 +1154,7 @@ function AdminConsoleContent() {
                     Google Gemini API Key
                   </Label>
                   <p className="text-xs text-slate-500">
-                    นำ API Key ที่ได้จาก Google AI Studio มาวางในช่องนี้ (ขึ้นต้นด้วย <code>AIzaSy...</code>)
+                    นำ API Key ที่ได้จาก Google AI Studio มาวางในช่องนี้ (ขึ้นต้นด้วย <code>AQ...</code> หรือ <code>AIzaSy...</code>)
                   </p>
                 </div>
 
@@ -1245,7 +1245,7 @@ function AdminConsoleContent() {
                     กดปุ่ม <strong>"Create API key"</strong> แล้วเลือกโปรเจกต์ Google Cloud (หรือเลือกสร้างใหม่ฟรี)
                   </li>
                   <li>
-                    คัดลอกคีย์ที่ขึ้นต้นด้วย <code>AIzaSy...</code> นำมาวางในช่อง <strong>"Google Gemini API Key"</strong> ด้านบน แล้วกดปุ่ม <strong>"บันทึกคีย์ AI"</strong>
+                    คัดลอกคีย์ (เช่น <code>AQ.Ab8...</code> หรือ <code>AIzaSy...</code>) นำมาวางในช่อง <strong>"Google Gemini API Key"</strong> ด้านบน แล้วกดปุ่ม <strong>"บันทึกคีย์ AI"</strong>
                   </li>
                   <li>
                     เมื่อบันทึกแล้ว หน้าลงทะเบียนรับงานจะสามารถอ่านตัวอักษรภาษาไทย ชื่อ-นามสกุล และที่อยู่บนบัตรประชาชนได้อย่างแม่นยำ 100% ทันที!

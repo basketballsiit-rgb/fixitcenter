@@ -150,7 +150,7 @@ export class OcrService implements OnModuleInit {
 
     return {
       success: false,
-      message: `เชื่อมต่อไม่สำเร็จ: ${lastError} (สำหรับ Google Gemini คีย์จะขึ้นต้นด้วย "AIzaSy..." จาก https://aistudio.google.com/app/apikey)`,
+      message: `เชื่อมต่อไม่สำเร็จ: ${lastError}`,
     };
   }
 
