@@ -82,19 +82,21 @@ export class OcrService implements OnModuleInit {
       return { success: false, message: 'API Key ไม่ถูกต้อง หรือสั้นเกินไป' };
     }
 
-    const candidateModels = [
-      'gemini-1.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro',
+    const candidateConfigs = [
+      { version: 'v1beta', model: 'gemini-1.5-flash' },
+      { version: 'v1beta', model: 'gemini-2.0-flash' },
+      { version: 'v1', model: 'gemini-1.5-flash' },
+      { version: 'v1beta', model: 'gemini-1.5-pro' },
+      { version: 'v1beta', model: 'gemini-1.5-flash-8b' },
+      { version: 'v1beta', model: 'gemini-2.0-flash-exp' },
     ];
 
     let lastError = '';
 
     // 1. Try Google Gemini API
-    for (const model of candidateModels) {
+    for (const cfg of candidateConfigs) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
+        const url = `https://generativelanguage.googleapis.com/${cfg.version}/models/${cfg.model}:generateContent?key=${cleanKey}`;
         const res = await axios.post(
           url,
           {
@@ -113,7 +115,7 @@ export class OcrService implements OnModuleInit {
           }
         );
         if (res.status === 200) {
-          return { success: true, message: `✓ เชื่อมต่อ Google Gemini AI (${model}) สำเร็จพร้อมใช้งาน!` };
+          return { success: true, message: `✓ เชื่อมต่อ Google Gemini AI (${cfg.model}) สำเร็จพร้อมใช้งาน!` };
         }
       } catch (err: any) {
         lastError = err?.response?.data?.error?.message || err?.message || 'ไม่สามารถเชื่อมต่อได้';
@@ -168,12 +170,6 @@ export class OcrService implements OnModuleInit {
         cleanBase64 = parts[1];
       }
 
-      const candidateModels = [
-        'gemini-1.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-pro',
-      ];
-
       const systemPrompt = `คุณคือระบบ AI OCR อัจฉริยะความแม่นยำสูงพิเศษสำหรับการอ่านข้อมูลบัตรประจำตัวประชาชนไทย (Thai Citizen ID Card)
 หน้าที่ของคุณคือวิเคราะห์รูปภาพบัตรประชาชน และสกัดข้อมูลสำคัญ 3 ส่วนนี้เท่านั้น โดยต้องมีความถูกต้องแม่นยำสูงสุด 100%:
 
@@ -216,9 +212,17 @@ export class OcrService implements OnModuleInit {
         },
       };
 
-      for (const model of candidateModels) {
+      const candidateConfigs = [
+        { version: 'v1beta', model: 'gemini-1.5-flash' },
+        { version: 'v1beta', model: 'gemini-2.0-flash' },
+        { version: 'v1', model: 'gemini-1.5-flash' },
+        { version: 'v1beta', model: 'gemini-1.5-pro' },
+        { version: 'v1beta', model: 'gemini-1.5-flash-8b' },
+      ];
+
+      for (const cfg of candidateConfigs) {
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const url = `https://generativelanguage.googleapis.com/${cfg.version}/models/${cfg.model}:generateContent?key=${apiKey}`;
           const response = await axios.post(url, payload, {
             headers: {
               'Content-Type': 'application/json',
@@ -251,7 +255,7 @@ export class OcrService implements OnModuleInit {
             };
           }
         } catch (mErr: any) {
-          this.logger.warn(`Model ${model} try notice: ${mErr?.message}`);
+          this.logger.warn(`Model ${cfg.model} (${cfg.version}) try notice: ${mErr?.message}`);
         }
       }
 
