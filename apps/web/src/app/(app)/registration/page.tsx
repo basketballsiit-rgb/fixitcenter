@@ -127,6 +127,7 @@ function RegistrationPageContent() {
     lastName: string;
     address: string;
     rawText: string;
+    confidence?: number;
     cardImage?: string;
   } | null>(null);
   const [showOcrReviewModal, setShowOcrReviewModal] = useState(false);
@@ -375,6 +376,7 @@ function RegistrationPageContent() {
         lastName: extracted?.lastName || '',
         address: extracted?.address || '',
         rawText: extracted?.rawText || '',
+        confidence: extracted?.confidence || 0,
         cardImage: cardImageBase64,
       };
 
@@ -1321,12 +1323,24 @@ function RegistrationPageContent() {
           <Dialog open={showOcrReviewModal} onOpenChange={setShowOcrReviewModal}>
             <DialogContent className="max-w-xl sm:max-w-2xl max-h-[92vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-blue-700 text-lg">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-600" />
-                  <span>ผลการอ่านข้อมูลบัตรประชาชน (AI OCR)</span>
+                <DialogTitle className="flex items-center justify-between text-blue-700 text-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                    <span>ผลการอ่านข้อมูลบัตรประชาชน</span>
+                  </div>
+                  {(ocrReviewData?.confidence ?? 0) >= 90 ? (
+                    <Badge className="bg-purple-600 text-white text-xs font-semibold gap-1 shadow-xs">
+                      <Sparkles className="w-3 h-3" />
+                      Google Gemini AI
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300 text-xs">
+                      Local OCR Engine
+                    </Badge>
+                  )}
                 </DialogTitle>
                 <DialogDescription>
-                  ตรวจสอบภาพบัตรและความถูกต้องของข้อมูลที่ดึงได้ สามารถแก้ไขก่อนกดยืนยันใช้งาน
+                  ตรวจสอบความถูกต้องของข้อมูลที่ดึงได้ (เฉพาะเลข 13 หลัก, ชื่อนามสกุลภาษาไทย, ที่อยู่)
                 </DialogDescription>
               </DialogHeader>
 

@@ -210,67 +210,90 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
     }
   }
 
-  // ── B. EXTRACT THAI & ENGLISH NAME (ชื่อ - นามสกุล) ──
+  // ── B. EXTRACT THAI NAME (ชื่อ - นามสกุล ภาษาไทยเท่านั้น) ──
+  const boilerplateTokens = [
+    'ชื่อตัวและชื่อสกุล', 'ชื่อตัวและสกุล', 'ตัวและชื่อสกุล', 'ตัวและสกุล', 'และชื่อสกุล', 'และสกุล',
+    'ชื่อตัว', 'ชื่อสกุล', 'ชื่อ', 'สกุล', 'นามสกุล', 'คำนำหน้านาม', 'คำนำหน้า',
+    'บัตรประจำตัวประชาชน', 'เกิดวันที่', 'วันเกิด', 'ศาสนา', 'สัญชาติ', 'ที่อยู่', 'วันออกบัตร', 'วันหมดอายุ'
+  ];
+
   const thaiPrefixes = [
     'นาย', 'นางสาว', 'นาง', 'เด็กชาย', 'เด็กหญิง', 'น.ส.', 'ด.ช.', 'ด.ญ.',
     'พระ', 'สามเณร', 'พลฯ', 'ร.ต.', 'ร.ท.', 'ร.อ.', 'พ.ต.', 'พ.ท.', 'พ.อ.',
     'ดร.', 'ผศ.', 'รศ.', 'ศ.'
   ];
 
+  // Helper to check if a token is boilerplate
+  const isBoilerplate = (tok: string) => {
+    if (!tok || tok.length < 2) return true;
+    return boilerplateTokens.some((b) => tok === b || tok.includes(b) || b.includes(tok));
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Check for Thai prefix
-    for (const prefix of thaiPrefixes) {
-      if (line.includes(prefix)) {
-        const parts = line.split(prefix);
-        if (parts.length > 1) {
-          const namePart = parts[1].trim();
-          const cleanName = namePart
-            .replace(/ชื่อตัวและชื่อสกุล|ชื่อตัว|ชื่อสกุล|ชื่อ|Name|Last\s*name/gi, '')
-            .replace(/[^ก-๙\s]/g, '')
-            .trim();
-          const tokens = cleanName.split(/\s+/).filter((t) => t.length > 1);
-
-          if (tokens.length >= 2) {
-            firstName = tokens[0];
-            lastName = tokens.slice(1).join(' ');
-          } else if (tokens.length === 1) {
-            firstName = tokens[0];
-            // Check next line for surname
-            if (i + 1 < lines.length) {
-              const nextLine = lines[i + 1];
-              const nextClean = nextLine.replace(/[^ก-๙\s]/g, '').trim();
-              const nextTokens = nextClean.split(/\s+/).filter((t) => t.length > 1);
-              if (nextTokens.length > 0 && !thaiPrefixes.some((p) => nextLine.includes(p)) && !nextLine.includes('เกิด') && !nextLine.includes('ที่อยู่')) {
-                lastName = nextTokens[0];
-              }
-            }
-          }
-        }
-      }
-      if (firstName && lastName) break;
+    // Skip address and date lines
+    if (line.includes('ที่อยู่') || line.includes('เกิด') || line.includes('วันหมด') || line.includes('ออกบัตร')) {
+      continue;
     }
 
-    // Check for 'ชื่อตัวและชื่อสกุล' or 'ชื่อ'
-    if (!firstName && (line.includes('ชื่อตัว') || line.includes('ชื่อสกุล') || line.includes('ชื่อ'))) {
-      const clean = line
-        .replace(/ชื่อตัวและชื่อสกุล|ชื่อตัว|ชื่อสกุล|ชื่อ|Name|Last\s*name/gi, '')
-        .replace(/[^ก-๙\s]/g, '')
-        .trim();
-      const tokens = clean.split(/\s+/).filter((t) => t.length > 1);
-      if (tokens.length >= 2) {
-        firstName = tokens[0];
-        lastName = tokens.slice(1).join(' ');
+    // Check line for Thai prefix
+    for (const prefix of thaiPrefixes) {
+      if (line.includes(prefix)) {
+        const afterPrefix = line.split(prefix)[1] || '';
+        const cleanThai = afterPrefix
+          .replace(/[^ก-๙\s]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const rawTokens = cleanThai.split(' ').filter((t) => !isBoilerplate(t) && t !== prefix && t.length > 1);
+
+        if (rawTokens.length >= 2) {
+          firstName = rawTokens[0];
+          lastName = rawTokens.slice(1).join(' ');
+          break;
+        } else if (rawTokens.length === 1) {
+          firstName = rawTokens[0];
+          // Check next line for surname
+          if (i + 1 < lines.length) {
+            const nextLine = lines[i + 1];
+            const nextClean = nextLine.replace(/[^ก-๙\s]/g, ' ').replace(/\s+/g, ' ').trim();
+            const nextTokens = nextClean.split(' ').filter((t) => !isBoilerplate(t) && !thaiPrefixes.some((p) => t === p) && t.length > 1);
+            if (nextTokens.length > 0) {
+              lastName = nextTokens[0];
+            }
+          }
+          break;
+        }
       }
     }
 
     if (firstName && lastName) break;
+
+    // Check line containing 'ชื่อตัว' or 'ชื่อสกุล'
+    if (line.includes('ชื่อตัว') || line.includes('ชื่อสกุล') || line.includes('ชื่อ')) {
+      let cleanThai = line
+        .replace(/ชื่อตัวและชื่อสกุล|ชื่อตัวและสกุล|ตัวและชื่อสกุล|ตัวและสกุล|และชื่อสกุล|และสกุล|ชื่อตัว|ชื่อสกุล|ชื่อ|สกุล|นามสกุล/gi, ' ')
+        .replace(/[^ก-๙\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const rawTokens = cleanThai.split(' ').filter((t) => !isBoilerplate(t) && !thaiPrefixes.some((p) => t === p) && t.length > 1);
+
+      if (rawTokens.length >= 2) {
+        firstName = rawTokens[0];
+        lastName = rawTokens.slice(1).join(' ');
+        break;
+      }
+    }
   }
 
-  // Ensure only Thai characters in firstName and lastName
-  firstName = firstName.replace(/[^ก-๙\s]/g, '').trim();
+  // Ensure only valid Thai characters and strip accidental boilerplate remnants
+  firstName = firstName.replace(/[^ก-๙]/g, '').trim();
   lastName = lastName.replace(/[^ก-๙\s]/g, '').trim();
+
+  if (isBoilerplate(firstName)) firstName = '';
+  if (isBoilerplate(lastName)) lastName = '';
 
   // ── C. EXTRACT ADDRESS (ที่อยู่ตามบัตรประชาชน) ──
   const addressStartKeywords = [
@@ -299,6 +322,7 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
       let clean = line
         .replace(/ที่อยู่/g, '')
         .replace(/Address/gi, '')
+        .replace(/ศาสนา.*$/g, '')
         .trim();
 
       if (clean.length > 1) {
