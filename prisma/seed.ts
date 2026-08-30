@@ -204,8 +204,8 @@ async function main() {
   ];
 
   const phoneHash = (p: string) => crypto.createHash('sha256').update(p).digest('hex');
-  const tradePrefix: Record<TradeCode, string> = { ELECTRICAL: 'E', ELECTRONICS: 'X', AUTOMOTIVE: 'A' };
-  const tradeCounts: Record<TradeCode, number> = { ELECTRICAL: 0, ELECTRONICS: 0, AUTOMOTIVE: 0 };
+  const tradePrefix: Record<TradeCode, string> = { ELECTRICAL: 'E', ELECTRONICS: 'X', AUTOMOTIVE: 'A', KITCHEN: 'K' };
+  const tradeCounts: Record<TradeCode, number> = { ELECTRICAL: 0, ELECTRONICS: 0, AUTOMOTIVE: 0, KITCHEN: 0 };
 
   for (const d of demoData) {
     tradeCounts[d.trade]++;
