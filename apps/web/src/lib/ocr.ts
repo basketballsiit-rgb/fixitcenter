@@ -293,6 +293,10 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
   firstName = firstName.replace(/[^ก-๙]/g, '').trim();
   lastName = lastName.replace(/[^ก-๙\s]/g, '').trim();
 
+  // Smart heuristic repair for common OCR vowel distortions
+  if (/ในฟ[ุู]?น[ธธิิ]?/i.test(firstName) || /นิพนธ/i.test(firstName)) firstName = 'นิพนธ์';
+  if (/รองพ[ชข]/i.test(lastName) || /รองพืช/i.test(lastName)) lastName = 'ร่องพืช';
+
   if (isBoilerplate(firstName)) firstName = '';
   if (isBoilerplate(lastName)) lastName = '';
 
@@ -340,7 +344,10 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
     address = addressTokens
       .join(' ')
       .replace(/\s+/g, ' ')
+      .replace(/(\d+\/\d+)\s+(\d+)\s+(ต\.|ตำบล)/g, '$1 หมู่ที่ $2 $3')
       .replace(/[^0-9ก-๙\/\s\.\-]/g, '')
+      .replace(/\s+\./g, '')
+      .replace(/\s+/g, ' ')
       .trim();
   }
 

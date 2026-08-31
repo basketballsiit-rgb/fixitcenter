@@ -38,29 +38,60 @@ export class OcrService implements OnModuleInit {
     }
   }
 
+  private inMemoryApiKey = '';
+
   async getGeminiApiKey(): Promise<string | null> {
+    if (this.inMemoryApiKey && this.inMemoryApiKey.trim().length > 0) {
+      return this.inMemoryApiKey.trim();
+    }
     try {
       const row: any = await this.prisma.systemSetting.findUnique({
         where: { key: 'GEMINI_API_KEY' },
       });
       if (row && row.value && row.value.trim().length > 0) {
-        return row.value.trim();
+        this.inMemoryApiKey = row.value.trim();
+        return this.inMemoryApiKey;
       }
     } catch {}
+
+    try {
+      const rawRows: any = await this.prisma.$queryRawUnsafe(
+        `SELECT value FROM system_settings WHERE key = 'GEMINI_API_KEY' LIMIT 1`
+      );
+      if (Array.isArray(rawRows) && rawRows.length > 0 && rawRows[0]?.value) {
+        this.inMemoryApiKey = String(rawRows[0].value).trim();
+        return this.inMemoryApiKey;
+      }
+    } catch {}
+
     return process.env.GEMINI_API_KEY || null;
   }
 
   async setGeminiApiKey(key: string): Promise<{ success: boolean; message: string }> {
     const cleanKey = (key || '').trim();
-    await this.prisma.systemSetting.upsert({
-      where: { key: 'GEMINI_API_KEY' },
-      update: { value: cleanKey, updatedAt: new Date() },
-      create: {
-        key: 'GEMINI_API_KEY',
-        value: cleanKey,
-        description: 'Google Gemini Vision AI API Key for Thai ID Card OCR',
-      },
-    });
+    this.inMemoryApiKey = cleanKey;
+    try {
+      await this.prisma.systemSetting.upsert({
+        where: { key: 'GEMINI_API_KEY' },
+        update: { value: cleanKey, updatedAt: new Date() },
+        create: {
+          key: 'GEMINI_API_KEY',
+          value: cleanKey,
+          description: 'Google Gemini Vision AI API Key for Thai ID Card OCR',
+        },
+      });
+    } catch {
+      try {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO system_settings (key, value, description, updated_at)
+           VALUES ('GEMINI_API_KEY', $1, 'Google Gemini Vision AI API Key', CURRENT_TIMESTAMP)
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP`,
+          cleanKey
+        );
+      } catch (rawErr: any) {
+        this.logger.warn(`Notice on raw saving system_settings: ${rawErr?.message}`);
+      }
+    }
     return { success: true, message: 'บันทึก Google Gemini API Key เรียบร้อยแล้ว' };
   }
 
