@@ -211,43 +211,49 @@ async function main() {
     tradeCounts[d.trade]++;
     const qn = `${tradePrefix[d.trade]}-${String(tradeCounts[d.trade]).padStart(3, '0')}`;
 
-    const customer = await prisma.customer.create({
-      data: {
-        nationalIdEnc: encrypt(d.nationalId),
-        firstNameEnc:  encrypt(d.firstName),
-        lastNameEnc:   encrypt(d.lastName),
-        phone:         d.phone,
-        phoneHash:     phoneHash(d.phone),
-        address:       '123 ถ.มิตรภาพ อ.เมือง จ.ขอนแก่น 40000',
-      },
+    const existingOrder = await prisma.repairOrder.findUnique({
+      where: { queueNumber: qn },
     });
 
-    const now = new Date();
-    const regAt = new Date(now.getTime() - Math.random() * 30 * 24 * 3600 * 1000);
+    if (!existingOrder) {
+      const customer = await prisma.customer.create({
+        data: {
+          nationalIdEnc: encrypt(d.nationalId),
+          firstNameEnc:  encrypt(d.firstName),
+          lastNameEnc:   encrypt(d.lastName),
+          phone:         d.phone,
+          phoneHash:     phoneHash(d.phone),
+          address:       '123 ถ.มิตรภาพ อ.เมือง จ.ขอนแก่น 40000',
+        },
+      });
 
-    await prisma.repairOrder.create({
-      data: {
-        queueNumber:     qn,
-        tradeCode:       d.trade,
-        status:          d.status,
-        missionId:       mission.id,
-        centerId:        centers[0].id,
-        customerId:      customer.id,
-        deviceCategory:  d.device,
-        deviceBrand:     d.brand,
-        deviceModel:     d.model,
-        problemDesc:     `อุปกรณ์มีปัญหา: ${d.device} — รายงานโดยลูกค้า`,
-        partsCost:       d.status === 'COMPLETED' || d.status === 'CLOSED' ? 250 : null,
-        marketRepairCost:d.status === 'COMPLETED' || d.status === 'CLOSED' ? 1500 : null,
-        economicValueSaved: d.status === 'COMPLETED' || d.status === 'CLOSED' ? 1250 : null,
-        registeredAt:    regAt,
-        startedAt:       d.status !== 'PENDING' ? new Date(regAt.getTime() + 3600000) : null,
-        completedAt:     ['COMPLETED','CLOSED','QC_PENDING'].includes(d.status) ? new Date(regAt.getTime() + 86400000) : null,
-        closedAt:        d.status === 'CLOSED' ? new Date(regAt.getTime() + 172800000) : null,
-      },
-    });
+      const now = new Date();
+      const regAt = new Date(now.getTime() - Math.random() * 30 * 24 * 3600 * 1000);
+
+      await prisma.repairOrder.create({
+        data: {
+          queueNumber:     qn,
+          tradeCode:       d.trade,
+          status:          d.status,
+          missionId:       mission.id,
+          centerId:        centers[0].id,
+          customerId:      customer.id,
+          deviceCategory:  d.device,
+          deviceBrand:     d.brand,
+          deviceModel:     d.model,
+          problemDesc:     `อุปกรณ์มีปัญหา: ${d.device} — รายงานโดยลูกค้า`,
+          partsCost:       d.status === 'COMPLETED' || d.status === 'CLOSED' ? 250 : null,
+          marketRepairCost:d.status === 'COMPLETED' || d.status === 'CLOSED' ? 1500 : null,
+          economicValueSaved: d.status === 'COMPLETED' || d.status === 'CLOSED' ? 1250 : null,
+          registeredAt:    regAt,
+          startedAt:       d.status !== 'PENDING' ? new Date(regAt.getTime() + 3600000) : null,
+          completedAt:     ['COMPLETED','CLOSED','QC_PENDING'].includes(d.status) ? new Date(regAt.getTime() + 86400000) : null,
+          closedAt:        d.status === 'CLOSED' ? new Date(regAt.getTime() + 172800000) : null,
+        },
+      });
+    }
   }
-  console.log(`  ✓ ${demoData.length} demo repair orders (center: ขอนแก่น)`);
+  console.log(`  ✓ Demo repair orders initialized/verified (center: ขอนแก่น)`);
 
   // Update counter values to match seeded data
   for (const [trade, count] of Object.entries(tradeCounts) as [TradeCode, number][]) {
