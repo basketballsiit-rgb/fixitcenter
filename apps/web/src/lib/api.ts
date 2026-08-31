@@ -246,6 +246,10 @@ export interface RepairOrder {
   customerSignature?: string | null;
   handoverSignature?: string | null;
   handoverBy?: string | null;
+  technicianNotes?: string | null;
+  supervisorNotes?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
   closedAt?: string | null;
   registeredAt?: string | null;
   center?: Center | any;

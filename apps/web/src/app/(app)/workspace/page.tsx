@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Wrench,
   Plus,
@@ -23,10 +23,18 @@ import {
   Maximize2,
   Eye,
   X,
+  Mic,
+  MicOff,
+  Volume2,
+  Sparkles,
+  FileText,
+  Printer,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -39,10 +47,50 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { QRScanner } from '@/components/qr-scanner/qr-scanner';
+import { PrintLayout } from '@/app/(app)/registration/print-layout';
 import { repairOrderApi } from '@/lib/api';
 import { formatPhone } from '@/lib/utils';
 import { getSocket } from '@/lib/socket';
 import { useToast } from '@/components/ui/use-toast';
+
+const PRESET_REPAIR_NOTES = [
+  {
+    category: 'success',
+    label: '✅ ซ่อมเสร็จสมบูรณ์',
+    text: 'ดำเนินการซ่อมแซมและเปลี่ยนอะไหล่เรียบร้อย อุปกรณ์ผ่านการทดสอบทำงานได้สมบูรณ์ตามปกติ',
+    color: 'border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100',
+  },
+  {
+    category: 'service',
+    label: '🔧 ตรวจเช็ค & ปรับแต่ง',
+    text: 'ตรวจเช็คระบบ ทำความสะอาด ปรับแต่งและบำรุงรักษา อุปกรณ์สามารถใช้งานได้ตามปกติ',
+    color: 'border-blue-300 text-blue-800 bg-blue-50 hover:bg-blue-100',
+  },
+  {
+    category: 'cannot_repair_parts',
+    label: '❌ ซ่อมไม่ได้ (ไม่มีอะไหล่)',
+    text: 'ไม่สามารถซ่อมได้เนื่องจากอะไหล่เลิกผลิต/ไม่มีในท้องตลาด แจ้งคืนเครื่องแก่ลูกค้า',
+    color: 'border-rose-300 text-rose-800 bg-rose-50 hover:bg-rose-100',
+  },
+  {
+    category: 'cannot_repair_damage',
+    label: '🚫 ไม่คุ้มค่าซ่อม (เสียหายหนัก)',
+    text: 'ตรวจพบความเสียหายรุนแรงที่ระบบหลัก ไม่คุ้มค่าต่อการซ่อมแซม แจ้งคืนเครื่องแก่ลูกค้า',
+    color: 'border-red-300 text-red-800 bg-red-50 hover:bg-red-100',
+  },
+  {
+    category: 'waiting_parts',
+    label: '⏳ รออะไหล่เฉพาะทาง',
+    text: 'ตรวจพบอาการเสีย ต้องรออะไหล่เฉพาะทางจากศูนย์บริการภายนอก อยู่ระหว่างจัดหา',
+    color: 'border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100',
+  },
+  {
+    category: 'partial',
+    label: '🟡 ซ่อมได้บางส่วน',
+    text: 'ดำเนินการซ่อมแซมระบบเบื้องต้นแล้ว แต่มีข้อจำกัดในการใช้งานบางฟังก์ชัน',
+    color: 'border-yellow-300 text-yellow-800 bg-yellow-50 hover:bg-yellow-100',
+  },
+];
 
 const STATUS_FLOW: Record<string, { next: string; label: string; color: string }> = {
   PENDING: { next: 'DIAGNOSING', label: '▶ เริ่มการวินิจฉัย / ตรวจเช็ค', color: 'bg-blue-600 hover:bg-blue-700' },
@@ -79,6 +127,12 @@ export default function WorkspacePage() {
   const [parts, setParts] = useState<PartItem[]>([]);
   const [partsSaving, setPartsSaving] = useState(false);
   const [notes, setNotes] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const recognitionRef = useRef<any>(null);
+  const [printOrder, setPrintOrder] = useState<any | null>(null);
+
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -87,6 +141,148 @@ export default function WorkspacePage() {
     setPreviewImage(imgSrc);
     setZoomScale(1);
     setRotation(0);
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        setSpeechSupported(false);
+      }
+    }
+  }, []);
+
+  const toggleSpeechRecognition = () => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast({
+        title: 'เบราว์เซอร์ไม่รองรับคำสั่งเสียง',
+        description: 'กรุณาใช้งานบน Google Chrome หรือ Microsoft Edge เพื่อใช้การพิมพ์ด้วยเสียง',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'th-TH';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast({ title: '🎙️ กำลังฟังเสียงพูดภาษาไทย...', description: 'พูดรายละเอียดการซ่อมได้เลย ระบบจะพิมพ์ให้อัตโนมัติ' });
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            transcript += event.results[i][0].transcript;
+          }
+        }
+        if (transcript.trim()) {
+          setNotes((prev) => (prev ? `${prev.trim()} ${transcript.trim()}` : transcript.trim()));
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error !== 'no-speech') {
+          toast({ title: 'การรับเสียงขัดข้อง', description: event.error, variant: 'destructive' });
+        }
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      console.error('Speech recognition error:', err);
+      setIsListening(false);
+    }
+  };
+
+  const handleApplyPresetNote = (presetText: string) => {
+    setNotes((prev) => {
+      if (!prev || !prev.trim()) return presetText;
+      return `${prev.trim()}\n${presetText}`;
+    });
+    toast({ title: '✓ เพิ่มข้อความสำเร็จรูปเรียบร้อย' });
+  };
+
+  const saveTechnicianNotes = async () => {
+    if (!order?.id) return;
+    setNotesSaving(true);
+    try {
+      await repairOrderApi.update(order.id, {
+        technicianNotes: notes,
+      });
+      setOrder((prev: any) => (prev ? { ...prev, technicianNotes: notes } : prev));
+      toast({ title: '✓ บันทึกรายละเอียดการซ่อมเรียบร้อยแล้ว' });
+    } catch (err: any) {
+      toast({ title: 'บันทึกไม่สำเร็จ', description: err?.response?.data?.message || err?.message, variant: 'destructive' });
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
+  const triggerPrintA4 = (queueNo: string) => {
+    setTimeout(() => {
+      const prevTitle = document.title;
+      document.title = `ใบรับงานซ่อม_${queueNo}`;
+      window.print();
+      document.title = prevTitle;
+    }, 250);
+  };
+
+  const handlePrintA4FromWorkspace = () => {
+    if (!order) return;
+    const img = (order.problemImages && order.problemImages.length > 0) ? order.problemImages[0] : undefined;
+    const recDate = order.registeredAt || order.createdAt || new Date();
+    setPrintOrder({
+      queueNumber: order.queueNumber,
+      centerName: order.center?.name || 'ศูนย์บริการ วิทยาลัยสารพัดช่างน่าน',
+      registeredAt: recDate,
+      startedAt: order.startedAt || null,
+      completedAt: order.completedAt || null,
+      technicianNotes: notes || order.technicianNotes || null,
+      technicianName: order.assignedTo?.fullName || 'ช่างผู้รับผิดชอบงาน',
+      idCardImage: order.idCardImage || null,
+      customerSignature: order.customerSignature || null,
+      handoverSignature: order.handoverSignature || null,
+      handoverBy: order.handoverBy || null,
+      closedAt: order.closedAt || null,
+      customer: {
+        firstName: order.customer?.firstName || 'ผู้รับบริการ',
+        lastName: order.customer?.lastName || '',
+        nationalId: order.customer?.nationalId || '',
+        phone: order.customer?.phone || '-',
+        address: order.customer?.address || '-',
+      },
+      device: {
+        tradeCode: order.deviceCategory || order.tradeCode || 'E01',
+        brand: order.deviceBrand || '-',
+        problemDesc: order.problemDesc || '-',
+        deviceCondition: order.deviceCondition,
+        accessories: order.accessories,
+        additionalDetails: order.additionalDetails,
+        image: img,
+      },
+    });
+    triggerPrintA4(order.queueNumber);
   };
 
   const fetchOrder = useCallback(async (queryInput: string) => {
@@ -106,7 +302,7 @@ export default function WorkspacePage() {
           cost: Number(p.unitCost ?? p.cost ?? 0),
         }));
         setParts(initialParts.length > 0 ? initialParts : []);
-        setNotes(data.additionalDetails || data.notes || '');
+        setNotes(data.technicianNotes || data.additionalDetails || data.notes || '');
         toast({ title: `✓ พบข้อมูลคิว ${data.queueNumber}` });
         return;
       }
@@ -126,7 +322,7 @@ export default function WorkspacePage() {
           cost: Number(p.unitCost ?? p.cost ?? 0),
         }));
         setParts(initialParts.length > 0 ? initialParts : []);
-        setNotes(data.additionalDetails || data.notes || '');
+        setNotes(data.technicianNotes || data.additionalDetails || data.notes || '');
         toast({ title: `✓ พบข้อมูลคิว ${data.queueNumber}` });
         return;
       }
@@ -144,7 +340,7 @@ export default function WorkspacePage() {
             cost: Number(p.unitCost ?? p.cost ?? 0),
           }));
           setParts(initialParts.length > 0 ? initialParts : []);
-          setNotes(first.additionalDetails || first.notes || '');
+          setNotes(first.technicianNotes || first.additionalDetails || first.notes || '');
           toast({ title: `✓ พบข้อมูลคิว ${first.queueNumber}` });
           return;
         }
@@ -591,6 +787,126 @@ export default function WorkspacePage() {
             </CardContent>
           </Card>
 
+          {/* Technician Repair Notes & Voice-to-Text Details */}
+          <Card className="shadow-sm border-slate-200 overflow-hidden">
+            <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/50 via-slate-50 to-white border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  รายละเอียดการซ่อม & ผลการตรวจเช็ค (Repair Result)
+                </CardTitle>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  บันทึกผลการซ่อม/สาเหตุที่ไม่สามารถซ่อมได้ สำหรับพิมพ์ลงในใบรับงานซ่อม (Repair Form)
+                </p>
+              </div>
+
+              {/* Action Buttons: Print Form */}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrintA4FromWorkspace}
+                  className="h-8 gap-1.5 text-xs border-slate-300 text-slate-700 bg-white hover:bg-slate-50 shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-600" />
+                  🖨️ พิมพ์ใบรับซ่อม (A4)
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-4 space-y-3.5">
+              {/* Quick Select Presets */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    เลือกข้อความสำเร็จรูป (Quick Presets):
+                  </Label>
+                  <span className="text-[11px] text-slate-400">คลิกเพื่อแทรกข้อความ</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {PRESET_REPAIR_NOTES.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleApplyPresetNote(preset.text)}
+                      className={`text-left p-2 rounded-lg border text-xs font-medium transition-all hover:scale-[1.01] active:scale-95 shadow-2xs ${preset.color}`}
+                    >
+                      <div className="font-bold text-[12px] leading-tight mb-1">{preset.label}</div>
+                      <div className="text-[11px] opacity-85 line-clamp-2 leading-snug">{preset.text}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Separator className="my-2" />
+
+              {/* Textarea with Voice-to-Text Button */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                    ข้อความรายละเอียดการซ่อม (แก้ไขหรือพิมพ์เพิ่มเติมได้):
+                  </Label>
+
+                  {/* Voice Button */}
+                  <Button
+                    type="button"
+                    variant={isListening ? 'destructive' : 'outline'}
+                    size="sm"
+                    onClick={toggleSpeechRecognition}
+                    className={`h-8 gap-1.5 text-xs font-semibold shadow-xs transition-all ${
+                      isListening
+                        ? 'animate-pulse bg-red-600 text-white border-red-700'
+                        : 'border-blue-300 text-blue-700 bg-blue-50/50 hover:bg-blue-100'
+                    }`}
+                  >
+                    {isListening ? (
+                      <>
+                        <MicOff className="w-3.5 h-3.5" />
+                        🔴 กำลังฟัง... (คลิกเพื่อหยุด)
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-3.5 h-3.5 text-blue-600" />
+                        🎙️ พูดด้วยเสียง (Voice-to-Text)
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {isListening && (
+                  <div className="flex items-center gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 animate-pulse">
+                    <div className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+                    <span className="font-semibold">ระบบกำลังฟังเสียงพูดภาษาไทย... พูดรายละเอียดการซ่อมได้ทันที</span>
+                  </div>
+                )}
+
+                <Textarea
+                  placeholder="พิมพ์รายละเอียดการซ่อม, ผลการทดสอบ, หรือสาเหตุที่ไม่สามารถซ่อมได้..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={4}
+                  className="text-xs sm:text-sm bg-white border-slate-300 focus:border-blue-500 rounded-lg resize-y font-normal leading-relaxed"
+                />
+              </div>
+
+              {/* Save Notes Button */}
+              <div className="flex justify-end pt-1">
+                <Button
+                  type="button"
+                  onClick={saveTechnicianNotes}
+                  disabled={notesSaving}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold gap-1.5 h-9 px-4 shadow-sm"
+                >
+                  {notesSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  💾 บันทึกรายละเอียดการซ่อม
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Spare Parts Form */}
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
@@ -953,6 +1269,9 @@ export default function WorkspacePage() {
           </div>
         </div>
       )}
+
+      {/* Official A4 Print Layout with Technician Notes */}
+      {printOrder && <PrintLayout {...printOrder} />}
     </div>
   );
 }

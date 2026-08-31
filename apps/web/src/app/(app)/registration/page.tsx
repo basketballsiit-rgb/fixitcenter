@@ -30,7 +30,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { useAuthStore } from '@/store/auth.store';
 import { cn, formatNationalId, formatPhone } from '@/lib/utils';
-import { PrintLayout } from './print-layout';
+import { PrintLayout, type PrintLayoutProps } from './print-layout';
 import { PrintTagLayout } from './print-tag-layout';
 import { scanIdCardImage, isValidThaiNationalId } from '@/lib/ocr';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -187,26 +187,7 @@ function RegistrationPageContent() {
   const [handoverSuccessDialogOpen, setHandoverSuccessDialogOpen] = useState(false);
 
   // Print Target States
-  const [printOrder, setPrintOrder] = useState<{
-    queueNumber: string;
-    centerName?: string;
-    registeredAt?: string | Date;
-    idCardImage?: string | null;
-    customerSignature?: string | null;
-    handoverSignature?: string | null;
-    handoverBy?: string | null;
-    closedAt?: string | Date | null;
-    customer: { firstName: string; lastName: string; nationalId: string; phone: string; address: string };
-    device: {
-      tradeCode: string;
-      brand?: string;
-      problemDesc: string;
-      deviceCondition?: string;
-      accessories?: string;
-      additionalDetails?: string;
-      image?: string;
-    };
-  } | null>(null);
+  const [printOrder, setPrintOrder] = useState<PrintLayoutProps | null>(null);
 
   const [printTagOrder, setPrintTagOrder] = useState<{
     queueNumber: string;
@@ -999,6 +980,10 @@ function RegistrationPageContent() {
       queueNumber: order.queueNumber,
       centerName: order.center?.name || centers.find((c) => c.id === order.centerId)?.name || 'ศูนย์บริการ วิทยาลัยสารพัดช่างน่าน',
       registeredAt: recDate,
+      startedAt: order.startedAt || null,
+      completedAt: order.completedAt || null,
+      technicianNotes: order.technicianNotes || null,
+      technicianName: order.assignedTo?.fullName || (order.technicianNotes ? 'ช่างผู้รับผิดชอบงาน' : null),
       idCardImage: order.idCardImage || null,
       customerSignature: order.customerSignature || null,
       handoverSignature: order.handoverSignature || null,

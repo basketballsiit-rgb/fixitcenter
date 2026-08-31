@@ -393,6 +393,10 @@ export class RepairOrdersService {
     if (dto.customerSignature !== undefined) orderData.customerSignature = dto.customerSignature;
     if (dto.handoverSignature !== undefined) orderData.handoverSignature = dto.handoverSignature;
     if (dto.handoverNotes !== undefined) orderData.handoverNotes = dto.handoverNotes;
+    if (dto.technicianNotes !== undefined) orderData.technicianNotes = dto.technicianNotes;
+    if (dto.supervisorNotes !== undefined) orderData.supervisorNotes = dto.supervisorNotes;
+    if (dto.startedAt !== undefined) orderData.startedAt = dto.startedAt ? new Date(dto.startedAt) : null;
+    if (dto.completedAt !== undefined) orderData.completedAt = dto.completedAt ? new Date(dto.completedAt) : null;
     if (dto.tradeCode !== undefined) orderData.tradeCode = dto.tradeCode;
     if (dto.status !== undefined) orderData.status = dto.status;
     if (dto.centerId !== undefined) orderData.centerId = dto.centerId;

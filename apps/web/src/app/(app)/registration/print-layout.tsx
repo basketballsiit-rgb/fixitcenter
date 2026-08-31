@@ -8,6 +8,12 @@ export interface PrintLayoutProps {
   queueNumber: string;
   centerName?: string;
   registeredAt?: string | Date;
+  startedAt?: string | Date | null;
+  completedAt?: string | Date | null;
+  technicianNotes?: string | null;
+  technicianName?: string | null;
+  technicianIdCard?: string | null;
+  teacherName?: string | null;
   idCardImage?: string | null;
   customerSignature?: string | null;
   handoverSignature?: string | null;
@@ -42,6 +48,12 @@ export function PrintLayout({
   queueNumber,
   centerName,
   registeredAt,
+  startedAt,
+  completedAt,
+  technicianNotes,
+  technicianName,
+  technicianIdCard,
+  teacherName,
   idCardImage,
   customerSignature,
   handoverSignature,
@@ -71,6 +83,23 @@ export function PrintLayout({
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  // Started & Completed dates
+  const startDateObj = startedAt ? new Date(startedAt) : null;
+  const thaiStartDate = startDateObj
+    ? startDateObj.toLocaleDateString('th-TH', { year: 'numeric', month: 'numeric', day: 'numeric' })
+    : null;
+  const thaiStartTime = startDateObj
+    ? startDateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  const compDateObj = completedAt ? new Date(completedAt) : null;
+  const thaiCompDate = compDateObj
+    ? compDateObj.toLocaleDateString('th-TH', { year: 'numeric', month: 'numeric', day: 'numeric' })
+    : null;
+  const thaiCompTime = compDateObj
+    ? compDateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+    : null;
 
   // Handover date if available
   const handoverDateObj = closedAt ? new Date(closedAt) : null;
@@ -317,21 +346,35 @@ export function PrintLayout({
               <td className="w-[55%] border-r border-black p-2.5 align-top space-y-2">
                 <div>
                   <span className="font-semibold block">รายละเอียดการซ่อม:</span>
-                  <p className="text-slate-400 mt-1">...................................................................................................................</p>
-                  <p className="text-slate-400">...................................................................................................................</p>
+                  {technicianNotes ? (
+                    <p className="font-semibold text-slate-900 mt-1 whitespace-pre-wrap leading-relaxed">{technicianNotes}</p>
+                  ) : (
+                    <>
+                      <p className="text-slate-400 mt-1">...................................................................................................................</p>
+                      <p className="text-slate-400">...................................................................................................................</p>
+                    </>
+                  )}
                 </div>
                 <div className="pt-2 space-y-1.5">
                   <div>
                     <span>วันที่เริ่มซ่อม </span>
-                    <span className="border-b border-dotted border-black px-2 inline-block min-w-[100px] text-center">......../......../........</span>
+                    <span className="border-b border-dotted border-black px-2 inline-block min-w-[100px] text-center font-medium">
+                      {thaiStartDate || '......../......../........'}
+                    </span>
                     <span className="ml-2">เวลา </span>
-                    <span className="border-b border-dotted border-black px-2 inline-block min-w-[60px] text-center">........:........ น.</span>
+                    <span className="border-b border-dotted border-black px-2 inline-block min-w-[60px] text-center font-medium">
+                      {thaiStartTime ? `${thaiStartTime} น.` : '........:........ น.'}
+                    </span>
                   </div>
                   <div>
                     <span>วันที่ซ่อมเสร็จ </span>
-                    <span className="border-b border-dotted border-black px-2 inline-block min-w-[100px] text-center">......../......../........</span>
+                    <span className="border-b border-dotted border-black px-2 inline-block min-w-[100px] text-center font-medium">
+                      {thaiCompDate || '......../......../........'}
+                    </span>
                     <span className="ml-2">เวลา </span>
-                    <span className="border-b border-dotted border-black px-2 inline-block min-w-[60px] text-center">........:........ น.</span>
+                    <span className="border-b border-dotted border-black px-2 inline-block min-w-[60px] text-center font-medium">
+                      {thaiCompTime ? `${thaiCompTime} น.` : '........:........ น.'}
+                    </span>
                   </div>
                 </div>
               </td>
@@ -341,11 +384,15 @@ export function PrintLayout({
                 <div className="font-bold text-center mb-1 underline">ผู้ดำเนินการซ่อม / ตรวจเช็ค</div>
                 <div>
                   <span>ชื่อ-สกุล </span>
-                  <span className="border-b border-dotted border-black px-2 inline-block min-w-[180px]">......................................................</span>
+                  <span className="border-b border-dotted border-black px-2 inline-block min-w-[180px] font-medium">
+                    {technicianName || '......................................................'}
+                  </span>
                 </div>
                 <div>
                   <span>บัตรประจำตัวประชาชนเลขที่ </span>
-                  <span className="border-b border-dotted border-black px-2 inline-block min-w-[130px]">.....................................</span>
+                  <span className="border-b border-dotted border-black px-2 inline-block min-w-[130px] font-medium">
+                    {technicianIdCard ? formatNationalId(technicianIdCard) : '.....................................'}
+                  </span>
                 </div>
                 <div>
                   <span>สาขาวิชา </span>
@@ -353,7 +400,9 @@ export function PrintLayout({
                 </div>
                 <div>
                   <span>ครูสาขาวิชา </span>
-                  <span className="border-b border-dotted border-black px-2 inline-block min-w-[160px]">................................................</span>
+                  <span className="border-b border-dotted border-black px-2 inline-block min-w-[160px] font-medium">
+                    {teacherName || '................................................'}
+                  </span>
                 </div>
               </td>
             </tr>
