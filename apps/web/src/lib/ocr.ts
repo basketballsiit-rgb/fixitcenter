@@ -344,7 +344,10 @@ export function parseThaiIdCardText(text: string): ExtractedIdCardData {
     address = addressTokens
       .join(' ')
       .replace(/\s+/g, ' ')
-      .replace(/(\d+\/\d+)\s+(\d+)\s+(ต\.|ตำบล)/g, '$1 หมู่ที่ $2 $3')
+      .replace(/(\d+(?:\/\d+)?)\s+(\d+)\s+(ต\.|ตำบล)/g, '$1 หมู่ที่ $2 $3')
+      .replace(/([ก-๙0-9])(ต\.|ตำบล)/g, '$1 $2')
+      .replace(/([ก-๙0-9])(อ\.|อำเภอ)/g, '$1 $2')
+      .replace(/([ก-๙0-9])(จ\.|จังหวัด)/g, '$1 $2')
       .replace(/[^0-9ก-๙\/\s\.\-]/g, '')
       .replace(/\s+\./g, '')
       .replace(/\s+/g, ' ')
