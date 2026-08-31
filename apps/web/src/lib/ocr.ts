@@ -19,6 +19,7 @@ export interface ExtractedIdCardData {
   address: string;
   rawText: string;
   confidence: number;
+  provider?: 'gemini' | 'local';
 }
 
 // 1. Dynamic Tesseract.js Loader
@@ -394,12 +395,13 @@ export async function scanIdCardImage(
               address: aiData.address || '',
               rawText: aiData.rawText || '',
               confidence: 99,
+              provider: 'gemini',
             };
           }
         }
       }
     } catch (aiErr) {
-      console.info('Using local offline Tesseract engine fallback:', aiErr);
+      console.warn('Google Gemini AI scan error, falling back to local engine:', aiErr);
     }
 
     onProgress?.(30, 'กำลังเตรียมรูปภาพและตัดขอบบัตรประชาชนอัตโนมัติ...');
