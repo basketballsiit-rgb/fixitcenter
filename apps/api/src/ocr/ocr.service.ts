@@ -246,8 +246,8 @@ export class OcrService implements OnModuleInit {
             parts: [
               { text: systemPrompt },
               {
-                inline_data: {
-                  mime_type: mimeType,
+                inlineData: {
+                  mimeType: mimeType,
                   data: cleanBase64,
                 },
               },
@@ -293,6 +293,7 @@ export class OcrService implements OnModuleInit {
               .trim();
 
             const parsed = JSON.parse(cleanedJson);
+            this.logger.log(`✓ Gemini Vision OCR success with model: ${cfg.model} (${parsed.firstName} ${parsed.lastName})`);
 
             return {
               nationalId: (parsed.nationalId || '').replace(/\D/g, ''),
@@ -308,7 +309,7 @@ export class OcrService implements OnModuleInit {
             };
           }
         } catch (mErr: any) {
-          this.logger.warn(`Model ${cfg.model} (${cfg.version} ${cfg.authType}) try notice: ${mErr?.message}`);
+          this.logger.warn(`Model ${cfg.model} (${cfg.version} ${cfg.authType}) error: ${mErr?.response?.data?.error?.message || mErr?.message}`);
         }
       }
 
