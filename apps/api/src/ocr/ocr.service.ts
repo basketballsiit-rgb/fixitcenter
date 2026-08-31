@@ -76,27 +76,81 @@ export class OcrService implements OnModuleInit {
     return { hasKey: true, maskedKey: masked, provider: 'gemini' };
   }
 
+  private async discoverGeminiModels(apiKey: string): Promise<Array<{ version: string; model: string; authType: 'key' | 'bearer' }>> {
+    const cleanKey = apiKey.trim();
+    const discovered: Array<{ version: string; model: string; authType: 'key' | 'bearer' }> = [];
+
+    const attempts = [
+      { version: 'v1beta', authType: 'key' as const, url: `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`, headers: { 'x-goog-api-key': cleanKey } },
+      { version: 'v1', authType: 'key' as const, url: `https://generativelanguage.googleapis.com/v1/models?key=${cleanKey}`, headers: { 'x-goog-api-key': cleanKey } },
+      { version: 'v1beta', authType: 'bearer' as const, url: `https://generativelanguage.googleapis.com/v1beta/models`, headers: { Authorization: `Bearer ${cleanKey}` } },
+      { version: 'v1', authType: 'bearer' as const, url: `https://generativelanguage.googleapis.com/v1/models`, headers: { Authorization: `Bearer ${cleanKey}` } },
+    ];
+
+    for (const att of attempts) {
+      try {
+        const res = await axios.get(att.url, { headers: att.headers, timeout: 8000 });
+        const models = res.data?.models || [];
+        for (const m of models) {
+          const methods: string[] = m.supportedGenerationMethods || [];
+          if (methods.includes('generateContent')) {
+            const cleanName = (m.name || '').replace('models/', '');
+            if (cleanName && !discovered.some((d) => d.model === cleanName && d.authType === att.authType)) {
+              discovered.push({ version: att.version, model: cleanName, authType: att.authType });
+            }
+          }
+        }
+        if (discovered.length > 0) {
+          break;
+        }
+      } catch (err: any) {
+        this.logger.debug(`ListModels attempt failed (${att.version} ${att.authType}): ${err?.message}`);
+      }
+    }
+
+    // Default fallbacks if ListModels was empty
+    if (discovered.length === 0) {
+      discovered.push(
+        { version: 'v1beta', model: 'gemini-1.5-flash', authType: 'key' },
+        { version: 'v1beta', model: 'gemini-2.0-flash', authType: 'key' },
+        { version: 'v1', model: 'gemini-1.5-flash', authType: 'key' },
+        { version: 'v1beta', model: 'gemini-1.5-pro', authType: 'key' },
+        { version: 'v1beta', model: 'gemini-1.5-flash-8b', authType: 'key' },
+        { version: 'v1beta', model: 'gemini-1.5-flash', authType: 'bearer' },
+        { version: 'v1beta', model: 'gemini-2.0-flash', authType: 'bearer' }
+      );
+    }
+
+    return discovered;
+  }
+
   async testGeminiKey(apiKey: string): Promise<{ success: boolean; message: string }> {
     const cleanKey = (apiKey || '').trim();
     if (!cleanKey || cleanKey.length < 10) {
       return { success: false, message: 'API Key ไม่ถูกต้อง หรือสั้นเกินไป' };
     }
 
-    const candidateConfigs = [
-      { version: 'v1beta', model: 'gemini-1.5-flash' },
-      { version: 'v1beta', model: 'gemini-2.0-flash' },
-      { version: 'v1', model: 'gemini-1.5-flash' },
-      { version: 'v1beta', model: 'gemini-1.5-pro' },
-      { version: 'v1beta', model: 'gemini-1.5-flash-8b' },
-      { version: 'v1beta', model: 'gemini-2.0-flash-exp' },
-    ];
-
     let lastError = '';
 
-    // 1. Try Google Gemini API
-    for (const cfg of candidateConfigs) {
+    // 1. Discover models dynamically from Google
+    const configs = await this.discoverGeminiModels(cleanKey);
+
+    for (const cfg of configs) {
       try {
-        const url = `https://generativelanguage.googleapis.com/${cfg.version}/models/${cfg.model}:generateContent?key=${cleanKey}`;
+        const url =
+          cfg.authType === 'key'
+            ? `https://generativelanguage.googleapis.com/${cfg.version}/models/${cfg.model}:generateContent?key=${cleanKey}`
+            : `https://generativelanguage.googleapis.com/${cfg.version}/models/${cfg.model}:generateContent`;
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (cfg.authType === 'key') {
+          headers['x-goog-api-key'] = cleanKey;
+        } else {
+          headers['Authorization'] = `Bearer ${cleanKey}`;
+        }
+
         const res = await axios.post(
           url,
           {
@@ -106,14 +160,9 @@ export class OcrService implements OnModuleInit {
               },
             ],
           },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': cleanKey,
-            },
-            timeout: 10000,
-          }
+          { headers, timeout: 12000 }
         );
+
         if (res.status === 200) {
           return { success: true, message: `✓ เชื่อมต่อ Google Gemini AI (${cfg.model}) สำเร็จพร้อมใช้งาน!` };
         }
@@ -212,22 +261,26 @@ export class OcrService implements OnModuleInit {
         },
       };
 
-      const candidateConfigs = [
-        { version: 'v1beta', model: 'gemini-1.5-flash' },
-        { version: 'v1beta', model: 'gemini-2.0-flash' },
-        { version: 'v1', model: 'gemini-1.5-flash' },
-        { version: 'v1beta', model: 'gemini-1.5-pro' },
-        { version: 'v1beta', model: 'gemini-1.5-flash-8b' },
-      ];
+      const configs = await this.discoverGeminiModels(apiKey);
 
-      for (const cfg of candidateConfigs) {
+      for (const cfg of configs) {
         try {
-          const url = `https://generativelanguage.googleapis.com/${cfg.version}/models/${cfg.model}:generateContent?key=${apiKey}`;
+          const url =
+            cfg.authType === 'key'
+              ? `https://generativelanguage.googleapis.com/${cfg.version}/models/${cfg.model}:generateContent?key=${apiKey}`
+              : `https://generativelanguage.googleapis.com/${cfg.version}/models/${cfg.model}:generateContent`;
+
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
+          if (cfg.authType === 'key') {
+            headers['x-goog-api-key'] = apiKey;
+          } else {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+          }
+
           const response = await axios.post(url, payload, {
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey,
-            },
+            headers,
             timeout: 25000,
           });
           const rawResponseText =
@@ -255,7 +308,7 @@ export class OcrService implements OnModuleInit {
             };
           }
         } catch (mErr: any) {
-          this.logger.warn(`Model ${cfg.model} (${cfg.version}) try notice: ${mErr?.message}`);
+          this.logger.warn(`Model ${cfg.model} (${cfg.version} ${cfg.authType}) try notice: ${mErr?.message}`);
         }
       }
 
