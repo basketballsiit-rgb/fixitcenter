@@ -23,7 +23,7 @@ export class DashboardService {
     // ── Aggregate counts ──────────────────────────────────────────────────
     const [totalRepairs, completedRepairs, inProgressRepairs, pendingRepairs] = await Promise.all([
       this.prisma.repairOrder.count({ where }),
-      this.prisma.repairOrder.count({ where: { ...where, status: 'COMPLETED' } }),
+      this.prisma.repairOrder.count({ where: { ...where, status: { in: ['COMPLETED', 'CLOSED'] } } }),
       this.prisma.repairOrder.count({ where: { ...where, status: { in: ['DIAGNOSING', 'REPAIRING', 'WAITING_PARTS', 'QC_PENDING'] } } }),
       this.prisma.repairOrder.count({ where: { ...where, status: 'PENDING' } }),
     ]);
@@ -51,11 +51,11 @@ export class DashboardService {
       elec0Completed, elec0InProgress,
       autoCompleted, autoInProgress
     ] = await Promise.all([
-      this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'ELECTRICAL', status: 'COMPLETED' } }),
+      this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'ELECTRICAL', status: { in: ['COMPLETED', 'CLOSED'] } } }),
       this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'ELECTRICAL', status: { in: ['PENDING', 'DIAGNOSING', 'REPAIRING', 'WAITING_PARTS', 'QC_PENDING'] } } }),
-      this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'ELECTRONICS', status: 'COMPLETED' } }),
+      this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'ELECTRONICS', status: { in: ['COMPLETED', 'CLOSED'] } } }),
       this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'ELECTRONICS', status: { in: ['PENDING', 'DIAGNOSING', 'REPAIRING', 'WAITING_PARTS', 'QC_PENDING'] } } }),
-      this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'AUTOMOTIVE', status: 'COMPLETED' } }),
+      this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'AUTOMOTIVE', status: { in: ['COMPLETED', 'CLOSED'] } } }),
       this.prisma.repairOrder.count({ where: { ...where, tradeCode: 'AUTOMOTIVE', status: { in: ['PENDING', 'DIAGNOSING', 'REPAIRING', 'WAITING_PARTS', 'QC_PENDING'] } } }),
     ]);
 

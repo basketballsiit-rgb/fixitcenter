@@ -328,6 +328,33 @@ function ReportsPageContent() {
     });
   }, [vehicleLogs, selectedCenterId, searchQuery]);
 
+  // Computed Real-time Dynamic Summaries (Synced with table & filters)
+  const computedApplianceSummary = useMemo(() => {
+    const totalServices = filteredApplianceLogs.reduce((acc, l) => acc + Number(l.serviceCount || 0), 0);
+    const totalCompleted = filteredApplianceLogs.reduce((acc, l) => acc + Number(l.completedCount || 0), 0);
+    const totalBudget = filteredApplianceLogs.reduce((acc, l) => acc + Number(l.totalBudget || 0), 0);
+    const totalEntries = filteredApplianceLogs.length;
+    return {
+      totalServices,
+      totalCompleted,
+      totalBudget,
+      totalEntries,
+    };
+  }, [filteredApplianceLogs]);
+
+  const computedVehicleSummary = useMemo(() => {
+    const totalServices = filteredVehicleLogs.reduce((acc, l) => acc + Number(l.serviceCount || 0), 0);
+    const totalCompleted = filteredVehicleLogs.reduce((acc, l) => acc + Number(l.completedCount || 0), 0);
+    const totalBudget = filteredVehicleLogs.reduce((acc, l) => acc + Number(l.totalBudget || 0), 0);
+    const totalEntries = filteredVehicleLogs.length;
+    return {
+      totalServices,
+      totalCompleted,
+      totalBudget,
+      totalEntries,
+    };
+  }, [filteredVehicleLogs]);
+
   // ── Appliance Handlers ──
   const handleOpenCreateAppliance = () => {
     setEditingApplianceId(null);
@@ -630,7 +657,7 @@ function ReportsPageContent() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500">จำนวนที่ให้บริการสะสม</p>
                   <h3 className="text-2xl font-black text-amber-800 mt-1 font-mono">
-                    {applianceSummary.totalServices.toLocaleString()}
+                    {computedApplianceSummary.totalServices.toLocaleString()}
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">เครื่อง / ชิ้น</p>
                 </div>
@@ -645,11 +672,11 @@ function ReportsPageContent() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500">จำนวนที่ซ่อมสำเร็จ</p>
                   <h3 className="text-2xl font-black text-emerald-700 mt-1 font-mono">
-                    {applianceSummary.totalCompleted.toLocaleString()}
+                    {computedApplianceSummary.totalCompleted.toLocaleString()}
                   </h3>
                   <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                    {applianceSummary.totalServices > 0
-                      ? `คิดเป็น ${Math.round((applianceSummary.totalCompleted / applianceSummary.totalServices) * 100)}%`
+                    {computedApplianceSummary.totalServices > 0
+                      ? `คิดเป็น ${Math.round((computedApplianceSummary.totalCompleted / computedApplianceSummary.totalServices) * 100)}%`
                       : '100%'}
                   </p>
                 </div>
@@ -664,7 +691,7 @@ function ReportsPageContent() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500">งบประมาณรวมทั้งสิ้น</p>
                   <h3 className="text-2xl font-black text-blue-800 mt-1 font-mono">
-                    ฿{applianceSummary.totalBudget.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                    ฿{computedApplianceSummary.totalBudget.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">ค่าอะไหล่/วัสดุสิ้นเปลือง</p>
                 </div>
@@ -679,7 +706,7 @@ function ReportsPageContent() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500">จำนวนรายการบันทึก</p>
                   <h3 className="text-2xl font-black text-slate-800 mt-1 font-mono">
-                    {applianceLogs.length}
+                    {computedApplianceSummary.totalEntries}
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">ชุดสถิติการดำเนินงาน</p>
                 </div>
@@ -908,7 +935,7 @@ function ReportsPageContent() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500">จำนวนที่ให้บริการสะสม</p>
                   <h3 className="text-2xl font-black text-blue-700 mt-1 font-mono">
-                    {vehicleSummary.totalServices.toLocaleString()}
+                    {computedVehicleSummary.totalServices.toLocaleString()}
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">คัน / เครื่องยนต์</p>
                 </div>
@@ -923,11 +950,11 @@ function ReportsPageContent() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500">จำนวนที่ซ่อมสำเร็จ</p>
                   <h3 className="text-2xl font-black text-emerald-700 mt-1 font-mono">
-                    {vehicleSummary.totalCompleted.toLocaleString()}
+                    {computedVehicleSummary.totalCompleted.toLocaleString()}
                   </h3>
                   <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                    {vehicleSummary.totalServices > 0
-                      ? `คิดเป็น ${Math.round((vehicleSummary.totalCompleted / vehicleSummary.totalServices) * 100)}%`
+                    {computedVehicleSummary.totalServices > 0
+                      ? `คิดเป็น ${Math.round((computedVehicleSummary.totalCompleted / computedVehicleSummary.totalServices) * 100)}%`
                       : '100%'}
                   </p>
                 </div>
@@ -942,7 +969,7 @@ function ReportsPageContent() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500">งบประมาณรวมทั้งสิ้น</p>
                   <h3 className="text-2xl font-black text-amber-800 mt-1 font-mono">
-                    ฿{vehicleSummary.totalBudget.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                    ฿{computedVehicleSummary.totalBudget.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">ค่าอะไหล่/วัสดุสิ้นเปลือง</p>
                 </div>
@@ -957,7 +984,7 @@ function ReportsPageContent() {
                 <div>
                   <p className="text-xs font-semibold text-slate-500">จำนวนรายการบันทึก</p>
                   <h3 className="text-2xl font-black text-slate-800 mt-1 font-mono">
-                    {vehicleLogs.length}
+                    {computedVehicleSummary.totalEntries}
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">ชุดสถิติการดำเนินงาน</p>
                 </div>
@@ -1277,8 +1304,8 @@ function ReportsPageContent() {
                 <span className="text-xs text-blue-200 font-medium">งบประมาณรวมทั้ง 3 กิจกรรม</span>
                 <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono mt-1">
                   ฿{(
-                    (Number(applianceSummary?.totalBudget) || 0) +
-                    (Number(vehicleSummary?.totalBudget) || 0) +
+                    (Number(computedApplianceSummary?.totalBudget) || 0) +
+                    (Number(computedVehicleSummary?.totalBudget) || 0) +
                     ((Number(kitchenSummary?.totalBoxes) || 0) * 50 +
                       (Number(kitchenSummary?.totalWater) || 0) * 7 +
                       (Number(kitchenSummary?.totalRelief) || 0) * 500)
@@ -1291,8 +1318,8 @@ function ReportsPageContent() {
                 <span className="text-xs text-blue-200 font-medium">ยอดรับบริการและแจกจ่ายรวม</span>
                 <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono mt-1">
                   {(
-                    (Number(applianceSummary?.totalServices) || 0) +
-                    (Number(vehicleSummary?.totalServices) || 0) +
+                    (Number(computedApplianceSummary?.totalServices) || 0) +
+                    (Number(computedVehicleSummary?.totalServices) || 0) +
                     (Number(kitchenSummary?.totalQuantity) || 0)
                   ).toLocaleString()}{' '}
                   <span className="text-sm font-normal text-white">รายการ</span>
@@ -1304,19 +1331,19 @@ function ReportsPageContent() {
                 <span className="text-xs text-blue-200 font-medium">งานซ่อมสำเร็จรวม</span>
                 <div className="text-2xl sm:text-3xl font-black text-cyan-300 font-mono mt-1">
                   {(
-                    (Number(applianceSummary?.totalCompleted) || 0) +
-                    (Number(vehicleSummary?.totalCompleted) || 0)
+                    (Number(computedApplianceSummary?.totalCompleted) || 0) +
+                    (Number(computedVehicleSummary?.totalCompleted) || 0)
                   ).toLocaleString()}{' '}
                   <span className="text-sm font-normal text-white">ชิ้น/คัน</span>
                 </div>
                 <span className="text-[11px] text-blue-300 mt-0.5 block">
                   คิดเป็นอัตราสำเร็จ{' '}
-                  {(Number(applianceSummary?.totalServices) || 0) + (Number(vehicleSummary?.totalServices) || 0) > 0
+                  {(Number(computedApplianceSummary?.totalServices) || 0) + (Number(computedVehicleSummary?.totalServices) || 0) > 0
                     ? Math.round(
-                        (((Number(applianceSummary?.totalCompleted) || 0) +
-                          (Number(vehicleSummary?.totalCompleted) || 0)) /
-                          ((Number(applianceSummary?.totalServices) || 0) +
-                            (Number(vehicleSummary?.totalServices) || 0))) *
+                        (((Number(computedApplianceSummary?.totalCompleted) || 0) +
+                          (Number(computedVehicleSummary?.totalCompleted) || 0)) /
+                          ((Number(computedApplianceSummary?.totalServices) || 0) +
+                            (Number(computedVehicleSummary?.totalServices) || 0))) *
                           100
                       )
                     : 0}
@@ -1337,15 +1364,15 @@ function ReportsPageContent() {
               <CardContent className="space-y-2">
                 <div className="flex justify-between items-center text-sm border-b pb-1">
                   <span className="text-slate-600">ยอดรับบริการสะสม:</span>
-                  <span className="font-bold text-amber-800 font-mono">{applianceSummary.totalServices} ชิ้น</span>
+                  <span className="font-bold text-amber-800 font-mono">{computedApplianceSummary.totalServices} ชิ้น</span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-b pb-1">
                   <span className="text-slate-600">ซ่อมสำเร็จ:</span>
-                  <span className="font-bold text-emerald-700 font-mono">{applianceSummary.totalCompleted} ชิ้น</span>
+                  <span className="font-bold text-emerald-700 font-mono">{computedApplianceSummary.totalCompleted} ชิ้น</span>
                 </div>
                 <div className="flex justify-between items-center text-sm pt-1">
                   <span className="text-slate-600">งบประมาณทั้งสิ้น:</span>
-                  <span className="font-bold text-slate-900 font-mono">฿{applianceSummary.totalBudget.toLocaleString()}</span>
+                  <span className="font-bold text-slate-900 font-mono">฿{computedApplianceSummary.totalBudget.toLocaleString()}</span>
                 </div>
               </CardContent>
             </Card>
@@ -1360,15 +1387,15 @@ function ReportsPageContent() {
               <CardContent className="space-y-2">
                 <div className="flex justify-between items-center text-sm border-b pb-1">
                   <span className="text-slate-600">ยอดรับบริการสะสม:</span>
-                  <span className="font-bold text-blue-700 font-mono">{vehicleSummary.totalServices} คัน/เครื่อง</span>
+                  <span className="font-bold text-blue-700 font-mono">{computedVehicleSummary.totalServices} คัน/เครื่อง</span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-b pb-1">
                   <span className="text-slate-600">ซ่อมสำเร็จ:</span>
-                  <span className="font-bold text-emerald-700 font-mono">{vehicleSummary.totalCompleted} คัน/เครื่อง</span>
+                  <span className="font-bold text-emerald-700 font-mono">{computedVehicleSummary.totalCompleted} คัน/เครื่อง</span>
                 </div>
                 <div className="flex justify-between items-center text-sm pt-1">
                   <span className="text-slate-600">งบประมาณทั้งสิ้น:</span>
-                  <span className="font-bold text-slate-900 font-mono">฿{vehicleSummary.totalBudget.toLocaleString()}</span>
+                  <span className="font-bold text-slate-900 font-mono">฿{computedVehicleSummary.totalBudget.toLocaleString()}</span>
                 </div>
               </CardContent>
             </Card>

@@ -54,22 +54,10 @@ export class VehicleLogsService {
       }),
     ]);
 
-    // Also get counts from automotive repair orders for complete visibility
-    const autoOrderWhere: any = { tradeCode: 'AUTOMOTIVE' };
-    if (centerId) autoOrderWhere.centerId = centerId;
-    if (missionId) autoOrderWhere.missionId = missionId;
-
-    const [autoOrderTotal, autoOrderCompleted] = await Promise.all([
-      this.prisma.repairOrder.count({ where: autoOrderWhere }),
-      this.prisma.repairOrder.count({
-        where: { ...autoOrderWhere, status: { in: ['COMPLETED', 'CLOSED'] } },
-      }),
-    ]);
-
     return {
       totalEntries,
-      totalServices: (serviceCountAgg._sum.serviceCount || 0) + autoOrderTotal,
-      totalCompleted: (completedCountAgg._sum.completedCount || 0) + autoOrderCompleted,
+      totalServices: Number(serviceCountAgg._sum.serviceCount || 0),
+      totalCompleted: Number(completedCountAgg._sum.completedCount || 0),
       totalBudget: Number(budgetAgg._sum.totalBudget || 0),
     };
   }

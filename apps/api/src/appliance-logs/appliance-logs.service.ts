@@ -54,22 +54,10 @@ export class ApplianceLogsService {
       }),
     ]);
 
-    // Also get counts from ELECTRICAL and ELECTRONICS repair orders for complete visibility
-    const electOrderWhere: any = { tradeCode: { in: ['ELECTRICAL', 'ELECTRONICS'] } };
-    if (centerId) electOrderWhere.centerId = centerId;
-    if (missionId) electOrderWhere.missionId = missionId;
-
-    const [electOrderTotal, electOrderCompleted] = await Promise.all([
-      this.prisma.repairOrder.count({ where: electOrderWhere }),
-      this.prisma.repairOrder.count({
-        where: { ...electOrderWhere, status: { in: ['COMPLETED', 'CLOSED'] } },
-      }),
-    ]);
-
     return {
       totalEntries,
-      totalServices: (serviceCountAgg._sum.serviceCount || 0) + electOrderTotal,
-      totalCompleted: (completedCountAgg._sum.completedCount || 0) + electOrderCompleted,
+      totalServices: Number(serviceCountAgg._sum.serviceCount || 0),
+      totalCompleted: Number(completedCountAgg._sum.completedCount || 0),
       totalBudget: Number(budgetAgg._sum.totalBudget || 0),
     };
   }
